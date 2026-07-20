@@ -41,7 +41,7 @@ function LoginTwoFactorContent() {
       await verifyLoginTwoFactor({ pendingToken, code });
       sessionStorage.removeItem(PENDING_TOKEN_KEY);
       toast.success("Access granted", {
-        description: "Welcome back to FileVault.",
+        description: "Welcome back to Bika-File.",
       });
       router.replace("/dashboard");
     } catch (error) {

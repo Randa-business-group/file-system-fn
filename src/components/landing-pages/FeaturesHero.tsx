@@ -18,7 +18,7 @@ export function FeaturesHero() {
         </p>
         <h1 className="mt-4 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
           Work smarter with{" "}
-          <span className="text-primary">FileVault</span>
+          <span className="text-primary">Bika-File</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-secondary">
           Everything you need to store, organize, share, and find documents

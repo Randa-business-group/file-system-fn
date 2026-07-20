@@ -38,7 +38,7 @@ export const HOW_IT_WORKS_STEPS = [
     step: "04",
     title: "Scale with confidence",
     description:
-      "From solo operators to enterprise teams — FileVault grows with your document workflows.",
+      "From solo operators to enterprise teams — Bika-File grows with your document workflows.",
     icon: "chart" as const,
   },
 ];
@@ -74,7 +74,7 @@ export const FEATURE_SHOWCASES: FeatureShowcase[] = [
     bullets: [
       "Access documents instantly from desktop, tablet, and mobile browsers",
       "Enable remote work for your entire team with a single secure workspace",
-      "Never worry about version chaos — always open the latest file in FileVault",
+      "Never worry about version chaos — always open the latest file in Bika-File",
     ],
     imageSide: "right",
     icon: "cloud",
@@ -119,7 +119,7 @@ export const FEATURE_SHOWCASES: FeatureShowcase[] = [
     bullets: [
       "Share files and folders with inbox-style delivery to the right people",
       "Control access with organization roles and shared-space membership",
-      "Recipients get instant access inside FileVault — no messy file transfers",
+      "Recipients get instant access inside Bika-File — no messy file transfers",
     ],
     imageSide: "left",
     icon: "link",
@@ -242,7 +242,7 @@ export const PRICING_PLANS = [
 ];
 
 export const FOOTER_CONTACT = {
-  email: "hello@filevault.app",
+  email: "hello@bikafile.app",
   phone: "+1 (555) 012-3456",
   location: "Kigali, Rwanda · Remote-first team",
 } as const;

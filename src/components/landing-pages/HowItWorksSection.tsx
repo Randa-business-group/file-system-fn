@@ -28,7 +28,7 @@ export function HowItWorksSection() {
             From upload to insight in four simple steps
           </h2>
           <p className="mt-4 text-base leading-relaxed text-secondary">
-            FileVault brings your documents, teams, and workflows together — so
+            Bika-File brings your documents, teams, and workflows together — so
             you spend less time searching and more time delivering results.
           </p>
         </div>

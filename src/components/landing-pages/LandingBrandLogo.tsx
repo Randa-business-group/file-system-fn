@@ -15,14 +15,14 @@ export function LandingBrandLogo({ className }: { className?: string }) {
     >
       <Image
         src={LOGO_SRC}
-        alt="FileVault"
+        alt="Bika-File"
         width={36}
         height={36}
         className="h-9 w-9 object-contain"
         priority
       />
       <span className="text-lg font-semibold tracking-tight text-foreground">
-        FileVault
+        Bika-File
       </span>
     </Link>
   );

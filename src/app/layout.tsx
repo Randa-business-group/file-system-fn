@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FileVault",
+  title: "Bika-File",
   description:
-    "Upload, organize, share, and find documents faster with FileVault.",
+    "Upload, organize, share, and find documents faster with Bika-File.",
   icons: "/file-browser-icon.png",
 };
 

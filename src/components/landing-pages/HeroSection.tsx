@@ -28,7 +28,7 @@ export function HeroSection() {
           </h1>
 
           <p className="mt-6 text-lg leading-relaxed text-secondary">
-            Join organizations that run on FileVault — upload, organize, share,
+            Join organizations that run on Bika-File — upload, organize, share,
             and find documents faster with AI-powered workflows built for
             security and scale.
           </p>

@@ -40,7 +40,7 @@ function VerifyEmailContent() {
       setIsVerifying(true);
       await verifyEmail({ email, otp });
       toast.success("Email verified", {
-        description: "Welcome to FileVault.",
+        description: "Welcome to Bika-File.",
       });
       router.replace("/dashboard");
     } catch (error) {

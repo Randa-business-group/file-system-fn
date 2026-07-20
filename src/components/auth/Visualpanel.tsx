@@ -151,7 +151,7 @@ export function VisualPanel() {
         </svg>
         <div className="leading-tight">
           <p className="text-[10px] font-bold tracking-[0.14em] text-[color:var(--color-primary)]">
-            FILEVAULT
+            BIKA-FILE
           </p>
           <p className="text-[8px] tracking-[0.08em] text-[color:var(--color-text-secondary)]">
             SECURE FILE SYSTEM

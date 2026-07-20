@@ -68,7 +68,7 @@ export default function LoginPage() {
       }
 
       toast.success("Access granted", {
-        description: "Welcome back to FileVault.",
+        description: "Welcome back to Bika-File.",
       });
       router.replace("/dashboard");
     } catch (err) {

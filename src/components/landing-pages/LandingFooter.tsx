@@ -81,7 +81,7 @@ export function LandingFooter() {
 
         <div className="mt-12 flex flex-col gap-4 border-t border-default pt-8 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted">
-            © {year} FileVault. All rights reserved.
+            © {year} bikafile. All rights reserved.
           </p>
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
             <Link
