@@ -18,7 +18,7 @@ import { Modal } from "@/components/ui/Modal";
 import { useBulkUpload } from "@/lib/hooks/useDocuments";
 import type { BulkUploadFile } from "@/types/document";
 
-const MAX_FILES = 5;
+const MAX_FILES = 15;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 interface BulkUploadDrawerProps {
@@ -69,7 +69,7 @@ export function BulkUploadDrawer({
 
   const addFiles = (newFiles: File[]) => {
     if (files.length + newFiles.length > MAX_FILES) {
-      toast.error("Maximum 5 files allowed at once");
+      toast.error(`Maximum ${MAX_FILES} files allowed at once`);
       return;
     }
 
@@ -211,7 +211,7 @@ export function BulkUploadDrawer({
                 Drag & drop or click to browse
               </p>
               <p className="mt-1 text-xs text-secondary">
-                PDF or images only · max 5 files · 10MB each
+                PDF or images only · max {MAX_FILES} files · 10MB each
               </p>
               <label
                 htmlFor="bulk-file-input"

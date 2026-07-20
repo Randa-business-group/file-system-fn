@@ -15,8 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "File-Vault System",
-  description: "File-Vault frontend app",
+  title: "FileVault",
+  description:
+    "Upload, organize, share, and find documents faster with FileVault.",
   icons: "/file-browser-icon.png",
 };
 

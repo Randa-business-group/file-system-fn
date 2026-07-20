@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import {
   ArrowDownLeft,
   Building,
@@ -287,18 +287,8 @@ export function Sidebar({
   const [orgExpanded, setOrgExpanded] = useState(false);
   const isInboxActive = isInboxRoute(pathname);
   const [inboxExpanded, setInboxExpanded] = useState(false);
-
-  useEffect(() => {
-    if (isOrgActive) {
-      setOrgExpanded(true);
-    }
-  }, [isOrgActive]);
-
-  useEffect(() => {
-    if (isInboxActive) {
-      setInboxExpanded(true);
-    }
-  }, [isInboxActive]);
+  const isOrgMenuExpanded = isOrgActive || orgExpanded;
+  const isInboxMenuExpanded = isInboxActive || inboxExpanded;
 
   return (
     <>
@@ -329,7 +319,7 @@ export function Sidebar({
           {collapsed ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 px-2">
               <Link
-                href="/dashboard"
+                href="/"
                 onClick={onClose}
                 title={user?.organizationName ?? "Dashboard"}
                 className="transition-opacity hover:opacity-90"
@@ -352,7 +342,7 @@ export function Sidebar({
           ) : (
             <div className="flex h-full items-center gap-2 px-3">
               <Link
-                href="/dashboard"
+                href="/"
                 onClick={onClose}
                 title={user?.organizationName ?? "Dashboard"}
                 className="flex min-w-0 flex-1 items-center gap-2.5 transition-opacity hover:opacity-90"
@@ -513,7 +503,7 @@ export function Sidebar({
                     <button
                       type="button"
                       onClick={() => setInboxExpanded((open) => !open)}
-                      aria-expanded={inboxExpanded}
+                      aria-expanded={isInboxMenuExpanded}
                       className={[
                         "group flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors",
                         isInboxActive
@@ -533,11 +523,11 @@ export function Sidebar({
                       <ChevronRight
                         className={[
                           "h-4 w-4 shrink-0 text-muted transition-transform duration-200",
-                          inboxExpanded ? "rotate-90" : "",
+                          isInboxMenuExpanded ? "rotate-90" : "",
                         ].join(" ")}
                       />
                     </button>
-                    {inboxExpanded ? (
+                    {isInboxMenuExpanded ? (
                       <div className="mt-0.5 space-y-0.5 pb-0.5">
                         {INBOX_SUB_ITEMS.map((sub) => {
                           const SubIcon = sub.icon;
@@ -619,7 +609,7 @@ export function Sidebar({
                         <button
                           type="button"
                           onClick={() => setOrgExpanded((open) => !open)}
-                          aria-expanded={orgExpanded}
+                          aria-expanded={isOrgMenuExpanded}
                           className={[
                             "group flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors",
                             isOrgActive
@@ -634,11 +624,11 @@ export function Sidebar({
                           <ChevronRight
                             className={[
                               "h-4 w-4 shrink-0 text-muted transition-transform duration-200",
-                              orgExpanded ? "rotate-90" : "",
+                              isOrgMenuExpanded ? "rotate-90" : "",
                             ].join(" ")}
                           />
                         </button>
-                        {orgExpanded ? (
+                        {isOrgMenuExpanded ? (
                           <div className="mt-0.5 space-y-0.5 pb-0.5">
                             {orgSubItems.map((sub) => {
                               const SubIcon = sub.icon;

@@ -2,10 +2,19 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
-import { authApi } from "@/api/auth.api";
+import { authApi, isTwoFactorChallenge } from "@/api/auth.api";
 import { Role } from "@/types/enum";
 import { ApiError, TOKEN_EVENT, tokenStorage } from "@/api/api-client";
-import type { AuthSuccessResponse, AuthUser, LoginPayload, RegisterPayload } from "@/types/auth";
+import type {
+  AuthSuccessResponse,
+  AuthUser,
+  LoginPayload,
+  LoginResponse,
+  RegisterPayload,
+  RegisterResponse,
+  VerifyEmailPayload,
+  VerifyLoginTotpPayload,
+} from "@/types/auth";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -15,8 +24,12 @@ interface AuthContextValue {
   isBranchManager: boolean;
   isDeptManager: boolean;
   isMember: boolean;
-  login: (payload: LoginPayload) => Promise<AuthSuccessResponse>;
-  register: (payload: RegisterPayload) => Promise<AuthSuccessResponse>;
+  login: (payload: LoginPayload) => Promise<LoginResponse>;
+  register: (payload: RegisterPayload) => Promise<RegisterResponse>;
+  verifyEmail: (payload: VerifyEmailPayload) => Promise<AuthSuccessResponse>;
+  verifyLoginTwoFactor: (
+    payload: VerifyLoginTotpPayload,
+  ) => Promise<AuthSuccessResponse>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -83,6 +96,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (payload: LoginPayload) => {
     const response = await authApi.login(payload);
+
+    if (isTwoFactorChallenge(response)) {
+      return response;
+    }
+
     tokenStorage.set(response.accessToken);
 
     flushSync(() => {
@@ -97,9 +115,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return response;
   }, [refreshUser]);
 
+  const verifyLoginTwoFactor = useCallback(
+    async (payload: VerifyLoginTotpPayload) => {
+      const response = await authApi.verifyLoginTwoFactor(payload);
+      tokenStorage.set(response.accessToken);
+
+      flushSync(() => {
+        setHasToken(true);
+        setUser(response.user ?? null);
+      });
+
+      if (!response.user) {
+        await refreshUser();
+      }
+
+      return response;
+    },
+    [refreshUser],
+  );
+
   const register = useCallback(async (payload: RegisterPayload) => {
     return authApi.register(payload);
   }, []);
+
+  const verifyEmail = useCallback(async (payload: VerifyEmailPayload) => {
+    const response = await authApi.verifyEmail(payload);
+    tokenStorage.set(response.accessToken);
+
+    flushSync(() => {
+      setHasToken(true);
+      setUser(response.user ?? null);
+    });
+
+    if (!response.user) {
+      await refreshUser();
+    }
+
+    return response;
+  }, [refreshUser]);
 
   const logout = useCallback(async () => {
     try {
@@ -122,10 +175,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isMember: user?.role === Role.MEMBER,
       login,
       register,
+      verifyEmail,
+      verifyLoginTwoFactor,
       logout,
       refreshUser,
     }),
-    [user, hasToken, isLoading, login, register, logout, refreshUser],
+    [user, hasToken, isLoading, login, register, verifyEmail, verifyLoginTwoFactor, logout, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

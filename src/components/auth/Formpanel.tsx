@@ -117,12 +117,12 @@ export function FormPanel({
               />
               Keep me signed in
             </label>
-            <button
-              type="button"
-              className="text-[12px] font-medium text-primary/75 transition-opacity hover:opacity-100"
+            <Link
+              href="/forgot-password"
+              className="text-[12px] font-medium text-primary/75 no-underline transition-opacity hover:opacity-100"
             >
               Forgot password?
-            </button>
+            </Link>
           </div>
 
           {/* Submit */}
@@ -183,7 +183,7 @@ export function FormPanel({
             href="/register"
             className="font-semibold text-primary/85 no-underline transition-opacity hover:opacity-100"
           >
-            Request access →
+            Sign Up →
           </Link>
         </p>
       </div>

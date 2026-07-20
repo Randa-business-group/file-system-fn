@@ -108,7 +108,7 @@ export default function RegisterPage() {
 
     try {
       setIsSubmitting(true);
-      await register({
+      const result = await register({
         organizationName: values.organizationName.trim(),
         type:
           values.organizationType === OrganizationType.COMPANY
@@ -119,14 +119,16 @@ export default function RegisterPage() {
         password: values.password,
       });
 
-      toast.success("Account created", {
-        description: "Your workspace is ready.",
+      toast.success("Check your email", {
+        description: result.message,
       });
 
       setValues(defaultValues);
       setErrors({});
       setCurrentStep(1);
-      router.replace("/login");
+      router.replace(
+        `/verify-email?email=${encodeURIComponent(result.email)}`,
+      );
     } catch (error) {
       toast.error(
         error instanceof ApiError

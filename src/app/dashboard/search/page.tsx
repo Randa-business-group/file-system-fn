@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   ChevronDown,
@@ -59,11 +59,6 @@ export default function DashboardSearchPage() {
   const { folders } = useGetRootFolders({ enabled: showFilters });
   const { document: selectedDocument, isLoading: isDocumentLoading } =
     useGetDocumentById(selectedDocumentId ?? "");
-
-  useEffect(() => {
-    setQuery(searchParams.get("q") ?? "");
-    setPage(1);
-  }, [searchParams]);
 
   const documents = searchResult?.documents.data ?? [];
   const foldersResult = searchResult?.folders.data ?? [];

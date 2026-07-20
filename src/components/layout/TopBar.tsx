@@ -78,7 +78,7 @@ export function TopBar({ pageTitle, onMenuClick }: TopBarProps) {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-default bg-surface/95 px-3 backdrop-blur-sm sm:gap-4 sm:px-5 lg:px-6">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-default bg-surface sm:gap-4 sm:px-5 lg:px-6">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <button
           type="button"
@@ -154,7 +154,7 @@ export function TopBar({ pageTitle, onMenuClick }: TopBarProps) {
 
             <DropdownMenuItem onClick={() => router.push("/dashboard/profile")}>
               <User className="h-4 w-4 shrink-0 text-muted" />
-              My Profile
+              Settings
             </DropdownMenuItem>
 
             {isOwner ? (

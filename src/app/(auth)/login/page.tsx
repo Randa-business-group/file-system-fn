@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ApiError } from "@/api/api-client";
+import { isTwoFactorChallenge } from "@/api/auth.api";
 import { useAuth } from "@/lib/auth-context";
 import type { LoginErrors, LoginFormValues } from "@/types/login";
 import { validateLoginForm } from "@/types/schema/login.schema";
@@ -52,12 +53,39 @@ export default function LoginPage() {
 
     try {
       setIsSubmitting(true);
-      await login({ email: values.email, password: values.password });
+      const response = await login({
+        email: values.email,
+        password: values.password,
+      });
+
+      if (isTwoFactorChallenge(response)) {
+        sessionStorage.setItem("pending2faToken", response.pendingToken);
+        toast.success("Enter your authenticator code", {
+          description: "Two-factor authentication is required.",
+        });
+        router.replace("/login/2fa");
+        return;
+      }
+
       toast.success("Access granted", {
         description: "Welcome back to FileVault.",
       });
       router.replace("/dashboard");
     } catch (err) {
+      if (
+        err instanceof ApiError &&
+        err.status === 403 &&
+        err.message.toLowerCase().includes("verify")
+      ) {
+        toast.error("Email not verified", {
+          description: "Enter the code we sent to your inbox.",
+        });
+        router.push(
+          `/verify-email?email=${encodeURIComponent(values.email.trim().toLowerCase())}`,
+        );
+        return;
+      }
+
       toast.error(
         err instanceof ApiError ? err.message : "Unable to sign in right now.",
       );

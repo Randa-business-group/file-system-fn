@@ -5,7 +5,15 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { Role } from "@/types/enum";
 
-const AUTH_PAGES = new Set(["/login", "/register"]);
+const AUTH_PAGES = new Set([
+  "/login",
+  "/login/2fa",
+  "/register",
+  "/verify-email",
+  "/forgot-password",
+  "/reset-password",
+  "/accept-invitation",
+]);
 
 const ROUTE_ROLE_ACCESS: Record<string, Role[]> = {
   "/dashboard/branches": [Role.OWNER],
@@ -21,6 +29,8 @@ function getRequiredRoles(pathname: string): Role[] | null {
   );
   return match ? match[1] : null;
 }
+
+const PUBLIC_MARKETING_PAGES = new Set(["/", "/features", "/contact"]);
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user, isOwner, isBranchManager, isDeptManager, isMember } =
@@ -73,7 +83,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     isMember,
   ]);
 
-  if (isLoading) {
+  if (isLoading && !PUBLIC_MARKETING_PAGES.has(pathname)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background text-secondary">
         Loading...

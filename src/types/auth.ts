@@ -21,6 +21,40 @@ export interface AuthUser {
   organizationName?: string | null;
   organizationLogo?: string | null;
   organizationEmail?: string | null;
+  totpEnabled?: boolean;
+  totpEnabledAt?: string | null;
+}
+
+export interface TwoFactorChallengeResponse {
+  requiresTwoFactor: true;
+  pendingToken: string;
+}
+
+export type LoginResponse = AuthSuccessResponse | TwoFactorChallengeResponse;
+
+export interface TwoFactorStatusResponse {
+  enabled: boolean;
+  enabledAt?: string | null;
+}
+
+export interface TwoFactorSetupResponse {
+  secret: string;
+  otpAuthUrl: string;
+  qrCodeDataUrl: string;
+}
+
+export interface VerifyTotpCodePayload {
+  code: string;
+}
+
+export interface VerifyLoginTotpPayload {
+  pendingToken: string;
+  code: string;
+}
+
+export interface DisableTotpPayload {
+  password: string;
+  code: string;
 }
 
 export interface UpdateProfilePayload {
@@ -37,6 +71,39 @@ export interface UpdateOrganizationPayload {
 export interface AuthSuccessResponse {
   accessToken: string;
   user: AuthUser;
+}
+
+export interface RegisterResponse {
+  message: string;
+  email: string;
+  requiresVerification: boolean;
+}
+
+export interface VerifyEmailPayload {
+  email: string;
+  otp: string;
+}
+
+export interface ResendVerificationPayload {
+  email: string;
+}
+
+export interface MessageResponse {
+  message: string;
+}
+
+export interface ForgotPasswordPayload {
+  email: string;
+}
+
+export interface ResetPasswordPayload {
+  token: string;
+  newPassword: string;
+}
+
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
 }
 
 export interface LogoutResponse {
