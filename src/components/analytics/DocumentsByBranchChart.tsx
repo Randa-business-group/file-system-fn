@@ -76,8 +76,8 @@ export function DocumentsByBranchChart() {
         emptyMessage="No department data for this branch"
         height={220}
       >
-        <div className="h-[220px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-[220px] min-w-0 w-full">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
             <BarChart data={chartData} barCategoryGap="20%">
               <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" />
               <XAxis

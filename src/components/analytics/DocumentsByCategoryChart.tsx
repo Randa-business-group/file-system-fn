@@ -18,8 +18,8 @@ export function DocumentsByCategoryChart() {
         isEmpty={isEmpty}
         height={220}
       >
-        <div className="h-[220px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-[220px] min-w-0 w-full">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
             <PieChart>
               <Pie
                 data={data ?? []}

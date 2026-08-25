@@ -38,8 +38,8 @@ export function DocumentsOverTimeChart({
         isEmpty={isEmpty}
         height={240}
       >
-        <div className="h-[240px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-[240px] min-w-0 w-full">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
             <AreaChart data={data ?? []}>
               <defs>
                 <linearGradient id="docsOverTime" x1="0" y1="0" x2="0" y2="1">
