@@ -5,9 +5,6 @@ import {
   Download,
   Eye,
   ExternalLink,
-  FileImage,
-  FileSpreadsheet,
-  FileText,
   MoreHorizontal,
   Pencil,
   Share2,
@@ -15,6 +12,8 @@ import {
 } from "lucide-react";
 import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
 import { DocumentPreview } from "@/components/ui/DocumentPreview";
+import { DocumentTypeIcon } from "@/components/documents/DocumentTypeIcon";
+import { getDocumentFileMeta } from "@/lib/upload-file-types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,47 +45,6 @@ interface DocumentCardProps {
   showDepartmentColumn?: boolean;
 }
 
-function getFileMeta(fileName: string) {
-  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
-
-  switch (extension) {
-    case "png":
-    case "jpg":
-    case "jpeg":
-    case "gif":
-    case "webp":
-      return {
-        icon: <FileImage className="h-5 w-5 text-sky-600" />,
-        typeLabel: "Image file",
-        chipClassName: "bg-sky-50 text-sky-700",
-        mimeType: `image/${extension === "jpg" ? "jpeg" : extension}`,
-      };
-    case "xls":
-    case "xlsx":
-    case "csv":
-      return {
-        icon: <FileSpreadsheet className="h-5 w-5 text-emerald-600" />,
-        typeLabel: "Spreadsheet",
-        chipClassName: "bg-emerald-50 text-emerald-700",
-        mimeType: "application/vnd.ms-excel",
-      };
-    case "pdf":
-      return {
-        icon: <FileText className="h-5 w-5 text-red-600" />,
-        typeLabel: "PDF document",
-        chipClassName: "bg-red-50 text-red-700",
-        mimeType: "application/pdf",
-      };
-    default:
-      return {
-        icon: <FileText className="h-5 w-5 text-slate-600" />,
-        typeLabel: extension ? `${extension.toUpperCase()} file` : "Document",
-        chipClassName: "bg-slate-100 text-slate-700",
-        mimeType: "application/octet-stream",
-      };
-  }
-}
-
 export function DocumentCard({
   document,
   onDelete,
@@ -104,7 +62,7 @@ export function DocumentCard({
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [newName, setNewName] = useState(document.title || document.fileName);
 
-  const fileMeta = getFileMeta(document.fileName);
+  const fileMeta = getDocumentFileMeta(document.fileName);
   const displayName = document.title || document.fileName;
 
   const handleRenameSubmit = () => {
@@ -139,9 +97,7 @@ export function DocumentCard({
         className={`grid ${documentGridColumns} items-center gap-4 border-t border-default px-4 py-3.5 text-sm transition-colors hover:bg-[var(--color-bg-secondary)]/80`}
       >
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-bg-secondary)]">
-            {fileMeta.icon}
-          </div>
+          <DocumentTypeIcon fileName={document.fileName} />
 
           <div className="min-w-0">
             {isRenaming ? (

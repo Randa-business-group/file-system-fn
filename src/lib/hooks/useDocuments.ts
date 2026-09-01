@@ -15,6 +15,7 @@ import type {
   DocumentListResponse,
   UpdateDocumentInput,
   ConfirmDocumentData,
+  BulkUploadItem,
 } from "@/types/document";
 
 export function useProcessDocument() {
@@ -145,11 +146,13 @@ export function useDeleteDocument() {
 export function useBulkUpload() {
   const queryClient = useQueryClient();
   const mutation = useMutation({
-    mutationFn: (files: File[] | { files: File[]; folderId?: string }) => {
-      if (Array.isArray(files)) {
-        return documentApi.bulkUpload(files);
+    mutationFn: (
+      payload: BulkUploadItem[] | { items: BulkUploadItem[]; folderId?: string },
+    ) => {
+      if (Array.isArray(payload)) {
+        return documentApi.bulkUpload(payload);
       }
-      return documentApi.bulkUpload(files.files, files.folderId);
+      return documentApi.bulkUpload(payload.items, payload.folderId);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["documents"] });

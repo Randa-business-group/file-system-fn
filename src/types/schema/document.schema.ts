@@ -37,3 +37,23 @@ export const confirmDocumentSchema = z.object({
 });
 
 export type ConfirmDocumentFormData = z.infer<typeof confirmDocumentSchema>;
+
+export const manualConfirmDocumentSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(2, "Title must have at least 2 characters."),
+  folderId: z.preprocess(
+    (value) => {
+      if (typeof value === "string" && value.trim() === "") {
+        return undefined;
+      }
+      return value;
+    },
+    z.string().optional(),
+  ),
+});
+
+export type ManualConfirmDocumentFormData = z.infer<
+  typeof manualConfirmDocumentSchema
+>;

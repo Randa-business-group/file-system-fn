@@ -5,7 +5,13 @@ import { ChevronDown } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useGetCategories } from "@/lib/hooks/useCategories";
-import { confirmDocumentSchema, type ConfirmDocumentFormData } from "@/types/schema/document.schema";
+import { useGetRootFolders } from "@/lib/hooks/useFolders";
+import {
+  confirmDocumentSchema,
+  manualConfirmDocumentSchema,
+  type ConfirmDocumentFormData,
+  type ManualConfirmDocumentFormData,
+} from "@/types/schema/document.schema";
 import { DatePicker } from "@/components/ui/DatePicker";
 import {
   DropdownMenu,
@@ -13,17 +19,19 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import type { ProcessDocumentResult } from "@/types/document";
+import type { ProcessDocumentResult, UploadProcessingMode } from "@/types/document";
 
 interface ConfirmDocumentFormProps {
+  mode: UploadProcessingMode;
   defaultValues: ProcessDocumentResult;
   defaultFolderId?: string | null;
-  onConfirm: (data: ConfirmDocumentFormData) => void;
+  onConfirm: (data: ConfirmDocumentFormData | ManualConfirmDocumentFormData) => void;
   onCancel: () => void;
   isLoading: boolean;
 }
 
 export function ConfirmDocumentForm({
+  mode,
   defaultValues,
   defaultFolderId,
   onConfirm,
@@ -31,6 +39,7 @@ export function ConfirmDocumentForm({
   isLoading,
 }: ConfirmDocumentFormProps) {
   const { categories } = useGetCategories();
+  const { folders, isLoading: foldersLoading } = useGetRootFolders();
   const folderId = defaultFolderId ?? "";
 
   const predictedCategoryId = categories.find(
@@ -47,15 +56,7 @@ export function ConfirmDocumentForm({
   const categoryDropdownRef = useRef<HTMLDivElement | null>(null);
   const [categoryDropdownWidth, setCategoryDropdownWidth] = useState<number | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { errors },
-    reset,
-  } = useForm<ConfirmDocumentFormData>({
-    // zod preprocess can cause narrow inference mismatch; cast resolver to any
+  const aiForm = useForm<ConfirmDocumentFormData>({
     resolver: zodResolver(confirmDocumentSchema) as any,
     defaultValues: {
       title: defaultValues.title,
@@ -71,8 +72,16 @@ export function ConfirmDocumentForm({
     },
   });
 
-  const categoryName = watch("categoryName") ?? "";
-  const categoryId = watch("categoryId");
+  const manualForm = useForm<ManualConfirmDocumentFormData>({
+    resolver: zodResolver(manualConfirmDocumentSchema) as any,
+    defaultValues: {
+      title: defaultValues.title,
+      folderId: folderId || undefined,
+    },
+  });
+
+  const categoryName = aiForm.watch("categoryName") ?? "";
+  const categoryId = aiForm.watch("categoryId");
 
   const filteredCategories = useMemo(() => {
     const query = categoryName.trim().toLowerCase();
@@ -107,7 +116,15 @@ export function ConfirmDocumentForm({
   }, []);
 
   useEffect(() => {
-    reset({
+    if (mode === "manual") {
+      manualForm.reset({
+        title: defaultValues.title,
+        folderId: folderId || undefined,
+      });
+      return;
+    }
+
+    aiForm.reset({
       title: defaultValues.title,
       categoryId: initialCategoryId,
       categoryName: predictedCategoryName || defaultValues.category || undefined,
@@ -119,11 +136,97 @@ export function ConfirmDocumentForm({
       purpose: defaultValues.purpose ?? undefined,
       documentDate: defaultValues.documentDate ?? undefined,
     });
-  }, [defaultValues, folderId, initialCategoryId, predictedCategoryName, reset]);
+  }, [
+    aiForm,
+    defaultValues,
+    folderId,
+    initialCategoryId,
+    manualForm,
+    mode,
+    predictedCategoryName,
+  ]);
+
+  if (mode === "manual") {
+    const {
+      register,
+      handleSubmit,
+      formState: { errors },
+    } = manualForm;
+
+    return (
+      <form
+        onSubmit={handleSubmit(onConfirm)}
+        className="grid gap-6"
+      >
+        <div>
+          <label htmlFor="title" className="block text-sm font-medium text-foreground">
+            Title
+          </label>
+          <input
+            id="title"
+            type="text"
+            {...register("title")}
+            className="mt-1 w-full rounded-2xl border border-default bg-surface px-4 py-2 text-foreground placeholder-secondary focus:border-primary focus:outline-none"
+            placeholder="Document title"
+          />
+          {errors.title && (
+            <p className="mt-1 text-xs text-red-600">{errors.title.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label htmlFor="folderId" className="block text-sm font-medium text-foreground">
+            Folder
+          </label>
+          <select
+            id="folderId"
+            {...register("folderId")}
+            disabled={foldersLoading}
+            className="mt-1 w-full rounded-2xl border border-default bg-surface px-4 py-2 text-foreground focus:border-primary focus:outline-none"
+          >
+            <option value="">Select a folder</option>
+            {folders.map((folder) => (
+              <option key={folder.id} value={folder.id}>
+                {folder.name}
+              </option>
+            ))}
+          </select>
+          {errors.folderId && (
+            <p className="mt-1 text-xs text-red-600">{errors.folderId.message}</p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2 pt-4 sm:flex-row">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isLoading}
+            className="flex-1 rounded-2xl border border-default px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-[var(--color-bg-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="flex-1 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isLoading ? "Saving..." : "Save Document"}
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors },
+  } = aiForm;
 
   return (
     <form onSubmit={handleSubmit(onConfirm)} className="grid gap-6 sm:grid-cols-2">
-      {/* Title */}
       <div className="sm:col-span-2">
         <label htmlFor="title" className="block text-sm font-medium text-foreground">
           Title
@@ -140,7 +243,6 @@ export function ConfirmDocumentForm({
         )}
       </div>
 
-      {/* Category / Metadata */}
       <div className="sm:col-span-2 grid gap-4 lg:grid-cols-2">
         <div>
           <label htmlFor="categoryName" className="block text-sm font-medium text-foreground">
@@ -257,7 +359,6 @@ export function ConfirmDocumentForm({
         </div>
       </div>
 
-      {/* Summary */}
       <div className="sm:col-span-2">
         <label htmlFor="summary" className="block text-sm font-medium text-foreground">
           Summary
@@ -274,10 +375,6 @@ export function ConfirmDocumentForm({
         )}
       </div>
 
-      {/* Folder */}
-      {/* Folder selection removed - folder is provided by context */}
-
-      {/* AI-extracted fields */}
       <div className="sm:col-span-2 grid gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="documentOwner" className="block text-sm font-medium text-foreground">Document Owner</label>
@@ -300,7 +397,6 @@ export function ConfirmDocumentForm({
         </div>
       </div>
 
-      {/* Actions */}
       <div className="sm:col-span-2 flex flex-col gap-2 pt-4 sm:flex-row">
         <button
           type="button"

@@ -55,28 +55,9 @@ interface FolderWorkspaceProps {
   readOnly?: boolean;
 }
 
+import { getFileTypeFromName } from "@/lib/upload-file-types";
+
 const NEW_FOLDER_ID = "pending-new-folder";
-
-function getFileType(fileName: string) {
-  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
-
-  switch (extension) {
-    case "png":
-    case "jpg":
-    case "jpeg":
-    case "gif":
-    case "webp":
-      return `image/${extension === "jpg" ? "jpeg" : extension}`;
-    case "pdf":
-      return "application/pdf";
-    case "xls":
-    case "xlsx":
-    case "csv":
-      return "application/vnd.ms-excel";
-    default:
-      return "application/octet-stream";
-  }
-}
 
 export function FolderWorkspace({
   title,
@@ -714,7 +695,7 @@ export function FolderWorkspace({
         onClose={() => setPreviewDocument(null)}
         fileUrl={previewDocument?.fileUrl ?? ""}
         fileName={previewDocument?.fileName ?? ""}
-        fileType={previewDocument?.fileName ? getFileType(previewDocument.fileName) : "application/octet-stream"}
+        fileType={previewDocument?.fileName ? getFileTypeFromName(previewDocument.fileName) : "application/octet-stream"}
       />
 
       <ShareModal

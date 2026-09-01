@@ -117,6 +117,8 @@ export interface DocumentListResponse {
   pagination: DocumentPagination;
 }
 
+export type UploadProcessingMode = "ai" | "manual";
+
 export interface BulkUploadFailure {
   fileName: string;
   reason: string;
@@ -127,8 +129,17 @@ export interface BulkUploadFile {
   fileName: string;
   preview: string;
   size: number;
+  fileType: string;
+  mode: UploadProcessingMode;
   status: "pending" | "uploading" | "queued" | "done" | "error";
   error?: string;
+}
+
+export interface BulkUploadItem {
+  file: File;
+  fileName: string;
+  fileType: string;
+  mode: UploadProcessingMode;
 }
 
 export interface MoveDocumentInput {

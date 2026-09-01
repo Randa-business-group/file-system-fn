@@ -7,16 +7,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
-  FileImage,
-  FileSearch,
-  FileSpreadsheet,
-  FileText,
   Maximize2,
   SearchX,
   X,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
+import { getDocumentFileMeta } from "@/lib/upload-file-types";
 
 interface DocumentPreviewProps {
   isOpen: boolean;
@@ -27,43 +24,18 @@ interface DocumentPreviewProps {
 }
 
 function getPreviewMeta(fileName: string, fileType: string) {
-  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
-
-  if (fileType === "application/pdf" || extension === "pdf") {
-    return {
-      kind: "pdf" as const,
-      label: "PDF",
-      icon: <FileText className="h-3.5 w-3.5" />,
-      iconBg: "bg-red-50 text-red-500",
-    };
-  }
-
-  if (
-    fileType.startsWith("image/") ||
-    ["png", "jpg", "jpeg", "gif", "webp"].includes(extension)
-  ) {
-    return {
-      kind: "image" as const,
-      label: extension.toUpperCase() || "Image",
-      icon: <FileImage className="h-3.5 w-3.5" />,
-      iconBg: "bg-blue-50 text-blue-500",
-    };
-  }
-
-  if (["xls", "xlsx", "csv"].includes(extension)) {
-    return {
-      kind: "other" as const,
-      label: extension.toUpperCase(),
-      icon: <FileSpreadsheet className="h-3.5 w-3.5" />,
-      iconBg: "bg-green-50 text-green-600",
-    };
-  }
+  const meta = getDocumentFileMeta(fileName, fileType);
 
   return {
-    kind: "other" as const,
-    label: extension ? extension.toUpperCase() : "File",
-    icon: <FileSearch className="h-3.5 w-3.5" />,
-    iconBg: "bg-gray-100 text-gray-500",
+    kind:
+      meta.kind === "pdf"
+        ? ("pdf" as const)
+        : meta.kind === "image"
+          ? ("image" as const)
+          : ("other" as const),
+    label: meta.typeLabel,
+    iconSrc: meta.iconSrc,
+    iconBg: meta.badgeClassName,
   };
 }
 
@@ -156,10 +128,15 @@ function PreviewContent({
         {/* ── Compact header ── */}
         <div className="flex h-12 flex-shrink-0 items-center gap-3 border-b border-gray-100 bg-gray-50 px-3 dark:border-gray-800 dark:bg-gray-800/60">
           {/* File type badge */}
-          <div
-            className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg ${previewMeta.iconBg}`}
-          >
-            {previewMeta.icon}
+          <div className="relative h-7 w-7 flex-shrink-0">
+            <Image
+              src={previewMeta.iconSrc}
+              alt=""
+              width={28}
+              height={28}
+              className="h-full w-full object-contain"
+              draggable={false}
+            />
           </div>
 
           {/* File name + meta */}

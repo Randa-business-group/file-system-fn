@@ -7,13 +7,12 @@ import {
   ArrowLeft,
   Download,
   Eye,
-  FileImage,
-  FileSpreadsheet,
-  FileText,
   MoreHorizontal,
   RefreshCw,
   Trash2,
 } from "lucide-react";
+import { DocumentTypeIcon } from "@/components/documents/DocumentTypeIcon";
+import { getDocumentFileMeta } from "@/lib/upload-file-types";
 import { useAuth } from "@/lib/auth-context";
 import {
   useGetSharedSpaceById,
@@ -34,39 +33,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { SharedSpaceDocument } from "@/types/shared-space";
 import { toast } from "sonner";
-
-function getFileMeta(fileName: string) {
-  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
-
-  switch (extension) {
-    case "png":
-    case "jpg":
-    case "jpeg":
-    case "gif":
-    case "webp":
-      return {
-        icon: <FileImage className="h-5 w-5 text-sky-600" />,
-        mimeType: `image/${extension === "jpg" ? "jpeg" : extension}`,
-      };
-    case "xls":
-    case "xlsx":
-    case "csv":
-      return {
-        icon: <FileSpreadsheet className="h-5 w-5 text-emerald-600" />,
-        mimeType: "application/vnd.ms-excel",
-      };
-    case "pdf":
-      return {
-        icon: <FileText className="h-5 w-5 text-red-600" />,
-        mimeType: "application/pdf",
-      };
-    default:
-      return {
-        icon: <FileText className="h-5 w-5 text-slate-600" />,
-        mimeType: "application/octet-stream",
-      };
-  }
-}
 
 export default function SharedSpaceDetailPage() {
   const params = useParams();
@@ -194,7 +160,7 @@ export default function SharedSpaceDetailPage() {
             <span className="text-right">Actions</span>
           </div>
           {documents.map((entry) => {
-            const fileMeta = getFileMeta(entry.document.fileName);
+            const fileMeta = getDocumentFileMeta(entry.document.fileName);
             const canReplace = user?.id === entry.document.uploadedBy.id;
             const canRemove = user?.id === entry.document.uploadedBy.id;
 
@@ -204,9 +170,7 @@ export default function SharedSpaceDetailPage() {
                 className="grid items-center gap-3 border-b border-default px-4 py-4 last:border-b-0 md:grid-cols-[minmax(240px,2fr)_1fr_1fr_1fr_auto] md:gap-4"
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--color-bg-secondary)]">
-                    {fileMeta.icon}
-                  </div>
+                  <DocumentTypeIcon fileName={entry.document.fileName} size="sm" />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-foreground">
                       {entry.document.title || entry.document.fileName}
@@ -314,7 +278,7 @@ export default function SharedSpaceDetailPage() {
           onClose={() => setPreviewEntry(null)}
           fileUrl={previewEntry.document.fileUrl}
           fileName={previewEntry.document.fileName}
-          fileType={getFileMeta(previewEntry.document.fileName).mimeType}
+          fileType={getDocumentFileMeta(previewEntry.document.fileName).mimeType}
         />
       ) : null}
     </div>

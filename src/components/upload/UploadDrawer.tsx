@@ -7,14 +7,23 @@ import { DropZone } from "./DropZone";
 import { ProcessingState } from "./ProcessingState";
 import { ConfirmDocumentForm } from "./ConfirmDocumentForm";
 import { BulkUploadDrawer } from "./BulkUploadDrawer";
-import { useProcessDocument, useCreateDocument } from "@/lib/hooks/useDocuments";
+import { ModeSelector } from "./ModeSelector";
+import {
+  useConfirmDocument,
+  useCreateDocument,
+  useProcessDocument,
+} from "@/lib/hooks/useDocuments";
 import { useDashboard } from "@/lib/dashboard-context";
 import { uploadApi } from "@/api/upload.api";
-import pdfjsLib from "@/lib/pdfjs-setup";
-import type { ProcessDocumentResult } from "@/types/document";
-import type { ConfirmDocumentFormData } from "@/types/schema/document.schema";
+import { extractTextFromFile } from "@/lib/extract-text";
+import { getUploadFileKind } from "@/lib/upload-file-types";
+import type { ProcessDocumentResult, UploadProcessingMode } from "@/types/document";
+import type {
+  ConfirmDocumentFormData,
+  ManualConfirmDocumentFormData,
+} from "@/types/schema/document.schema";
 
-type UploadState = "IDLE" | "PROCESSING" | "CONFIRM" | "SUCCESS";
+type UploadState = "IDLE" | "SELECTING_MODE" | "PROCESSING" | "CONFIRM" | "SUCCESS";
 type UploadMode = "single" | "multiple";
 
 interface UploadDrawerProps {
@@ -23,156 +32,162 @@ interface UploadDrawerProps {
   folderId?: string | null;
 }
 
+function stripExtension(fileName: string) {
+  return fileName.replace(/\.[^/.]+$/, "") || fileName;
+}
+
+function emptyManualDefaults(fileName: string): ProcessDocumentResult {
+  return {
+    title: stripExtension(fileName),
+    category: "",
+    summary: "",
+  };
+}
+
 export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: UploadDrawerProps) {
   const [mode, setMode] = useState<UploadMode>("single");
   const [state, setState] = useState<UploadState>("IDLE");
+  const [processingMode, setProcessingMode] = useState<UploadProcessingMode>("ai");
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [extractedText, setExtractedText] = useState("");
   const [aiResult, setAiResult] = useState<ProcessDocumentResult | null>(null);
-  const [showBulkUpload, setShowBulkUpload] = useState(false);
 
   const processDocument = useProcessDocument();
   const createDocument = useCreateDocument();
+  const confirmDocument = useConfirmDocument();
   const { uploadFolderId } = useDashboard();
   const effectiveFolderId = propFolderId ?? uploadFolderId;
 
-  const convertPdfToImage = async (pdfFile: File): Promise<File> => {
-    const arrayBuffer = await pdfFile.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
-    // Get the first page (you can extend this to process multiple pages)
-    const page = await pdf.getPage(1);
-    const scale = 2;
-    const viewport = page.getViewport({ scale });
-
-    // Create canvas
-    const canvas = document.createElement("canvas");
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    const context = canvas.getContext("2d");
-
-    if (!context) {
-      throw new Error("Failed to get canvas context");
-    }
-
-    // Render page to canvas
-    await page.render({
-      canvas,
-      viewport,
-    }).promise;
-
-    // Convert canvas to blob
-    return new Promise((resolve, reject) => {
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            reject(new Error("Failed to convert canvas to blob"));
-            return;
-          }
-          const imageFile = new File([blob], `${pdfFile.name}.png`, {
-            type: "image/png",
-          });
-          resolve(imageFile);
-        },
-        "image/png",
-        0.95
-      );
-    });
-  };
+  const resetUploadState = useCallback(() => {
+    setState("IDLE");
+    setProcessingMode("ai");
+    setCurrentStep(1);
+    setSelectedFile(null);
+    setExtractedText("");
+    setAiResult(null);
+  }, []);
 
   const handleProcessFile = async (file: File) => {
     setState("PROCESSING");
     setCurrentStep(1);
 
     try {
-      // Step 1: Convert file to image if needed
-      let imageFile = file;
-      if (file.type === "application/pdf") {
-        imageFile = await convertPdfToImage(file);
-      }
-
-      // Step 2: OCR with Tesseract
-      const { createWorker } = await import("tesseract.js");
-      const worker = await createWorker("eng");
-
-      const { data } = await worker.recognize(imageFile);
-      const text = data.text;
+      const text = await extractTextFromFile(file);
       setExtractedText(text);
 
-      await worker.terminate();
-
-      // Step 3: AI Processing
       setCurrentStep(2);
-
       const result = await processDocument.mutateAsync(text);
       setAiResult(result);
-
       setState("CONFIRM");
     } catch (error) {
       console.error("Processing error:", error);
       toast.error("Failed to process document. Please try again.");
-      setState("IDLE");
-      setSelectedFile(null);
+      resetUploadState();
     }
   };
 
   const handleFileSelected = useCallback((file: File | null) => {
     if (!file) {
-      setSelectedFile(null);
+      resetUploadState();
       return;
     }
 
     setSelectedFile(file);
-    if (state === "IDLE") {
-      handleProcessFile(file);
+    setState("SELECTING_MODE");
+  }, [resetUploadState]);
+
+  const handleModeSelect = (nextMode: UploadProcessingMode) => {
+    if (!selectedFile) return;
+
+    setProcessingMode(nextMode);
+
+    if (nextMode === "manual") {
+      setExtractedText("");
+      setAiResult(emptyManualDefaults(selectedFile.name));
+      setState("CONFIRM");
+      return;
     }
-  }, [state]);
 
+    void handleProcessFile(selectedFile);
+  };
 
-  const handleConfirmDocument = async (data: ConfirmDocumentFormData) => {
-    if (!selectedFile || !extractedText) {
+  const handleConfirmDocument = async (
+    data: ConfirmDocumentFormData | ManualConfirmDocumentFormData,
+  ) => {
+    if (!selectedFile) {
       toast.error("Missing document data");
+      return;
+    }
+
+    const targetFolderId =
+      processingMode === "manual"
+        ? (data as ManualConfirmDocumentFormData).folderId ?? effectiveFolderId
+        : effectiveFolderId;
+
+    if (!targetFolderId) {
+      toast.error("Please select a folder");
       return;
     }
 
     try {
       const uploadFormData = new FormData();
       uploadFormData.append("file", selectedFile);
-
       const uploadResult = await uploadApi.uploadFile(uploadFormData);
       const fileUrl = uploadResult.url;
 
-      await createDocument.mutateAsync({
-        fileUrl,
-        fileName: selectedFile.name,
-        extractedText,
-        // folderId supplied from context/prop
-        folderId: effectiveFolderId ?? undefined,
-        title: data.title,
-        summary: data.summary,
-        categoryId: data.categoryId?.trim() ? data.categoryId : undefined,
-        category:
-          !data.categoryId?.trim() && (data as any).categoryName?.trim()
-            ? (data as any).categoryName.trim()
-            : undefined,
-        documentOwner: (data as any).documentOwner,
-        author: (data as any).author,
-        documentType: (data as any).documentType,
-        concerning: (data as any).concerning,
-        purpose: (data as any).purpose,
-        documentDate: (data as any).documentDate,
-      });
+      if (processingMode === "manual") {
+        const manualData = data as ManualConfirmDocumentFormData;
+        const created = await createDocument.mutateAsync({
+          fileUrl,
+          fileName: selectedFile.name,
+          extractedText: "",
+          folderId: targetFolderId,
+          title: manualData.title,
+          summary: "Uploaded manually.",
+        });
+
+        await confirmDocument.mutateAsync({
+          id: created.id,
+          data: {
+            title: manualData.title,
+            folderId: targetFolderId,
+          },
+        });
+      } else {
+        if (!extractedText) {
+          toast.error("Missing document data");
+          return;
+        }
+
+        const aiData = data as ConfirmDocumentFormData;
+        await createDocument.mutateAsync({
+          fileUrl,
+          fileName: selectedFile.name,
+          extractedText,
+          folderId: targetFolderId,
+          title: aiData.title,
+          summary: aiData.summary,
+          categoryId: aiData.categoryId?.trim() ? aiData.categoryId : undefined,
+          category:
+            !aiData.categoryId?.trim() && aiData.categoryName?.trim()
+              ? aiData.categoryName.trim()
+              : undefined,
+          documentOwner: aiData.documentOwner,
+          author: aiData.author,
+          documentType: aiData.documentType,
+          concerning: aiData.concerning,
+          purpose: aiData.purpose,
+          documentDate: aiData.documentDate,
+        });
+      }
 
       toast.success("Document uploaded successfully");
       setState("SUCCESS");
 
       setTimeout(() => {
         onClose();
-        setState("IDLE");
-        setSelectedFile(null);
-        setExtractedText("");
-        setAiResult(null);
+        resetUploadState();
       }, 1500);
     } catch (error) {
       console.error("Upload error:", error);
@@ -195,17 +210,11 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
   }, [selectedFileUrl]);
 
   const handleCancel = () => {
-    setState("IDLE");
-    setSelectedFile(null);
-    setExtractedText("");
-    setAiResult(null);
+    resetUploadState();
   };
 
   const handleChangeFile = () => {
-    setState("IDLE");
-    setSelectedFile(null);
-    setExtractedText("");
-    setAiResult(null);
+    resetUploadState();
   };
 
   const handleModeChange = (newMode: UploadMode) => {
@@ -214,14 +223,15 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
 
   if (!isOpen) return null;
 
+  const confirmDefaults =
+    aiResult ??
+    (selectedFile ? emptyManualDefaults(selectedFile.name) : null);
+
   return (
     <>
-      {/* Backdrop */}
       <div className="fixed inset-0 z-40 bg-black bg-opacity-50" />
 
-      {/* Drawer */}
       <div className="fixed right-0 top-0 z-50 h-screen w-full max-w-3xl overflow-y-auto bg-surface shadow-xl">
-        {/* Header */}
         <div className="sticky top-0 flex items-center justify-between border-b border-default bg-surface px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-foreground">
@@ -261,48 +271,50 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
           </button>
         </div>
 
-        {/* Content */}
         <div className="space-y-6 p-6">
           {mode === "multiple" ? (
-            <BulkUploadDrawer embedded onClose={() => { handleModeChange("single"); onClose(); }} />
+            <BulkUploadDrawer
+              embedded
+              onClose={() => {
+                handleModeChange("single");
+                onClose();
+              }}
+            />
           ) : null}
 
-          {state === "IDLE" && (
-            mode === "single" ? (
+          {state === "IDLE" && mode === "single" ? (
             <div className="space-y-4">
               <p className="text-sm text-secondary">
-                Upload a PDF or image file. We&apos;ll extract the text and help you categorize it.
+                Upload a PDF, Word, Excel, CSV, or image file. Choose AI analysis or save manually.
               </p>
               <DropZone onFileSelected={handleFileSelected} selectedFile={selectedFile} />
-              {selectedFile && (
-                <button
-                  type="button"
-                  onClick={() => handleProcessFile(selectedFile)}
-                  className="w-full rounded bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover"
-                >
-                  Process Document
-                </button>
-              )}
             </div>
-            ) : null
-          )}
+          ) : null}
 
-          {state === "PROCESSING" && (
-            mode === "single" ? (
+          {state === "SELECTING_MODE" && selectedFile && mode === "single" ? (
+            <ModeSelector
+              fileName={selectedFile.name}
+              fileType={selectedFile.type}
+              onSelect={handleModeSelect}
+              onBack={handleChangeFile}
+            />
+          ) : null}
+
+          {state === "PROCESSING" && mode === "single" ? (
             <div>
               <p className="mb-6 text-sm text-secondary">
                 Please wait while we process your document...
               </p>
               <ProcessingState
                 currentStep={currentStep}
-                isComplete={state !== "PROCESSING" || currentStep > 2}
+                isComplete={currentStep > 2}
+                fileType={selectedFile?.type ?? ""}
+                fileName={selectedFile?.name}
               />
             </div>
-            ) : null
-          )}
+          ) : null}
 
-          {state === "CONFIRM" && aiResult && (
-            mode === "single" ? (
+          {state === "CONFIRM" && confirmDefaults && mode === "single" ? (
             <div className="space-y-6">
               <div className="rounded border border-default bg-surface p-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -310,7 +322,9 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
                     <p className="text-sm font-medium text-foreground">Selected file</p>
                     <p className="truncate text-sm text-secondary">{selectedFile?.name}</p>
                     <p className="text-xs text-secondary">
-                      {selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : "No file selected"}
+                      {selectedFile
+                        ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`
+                        : "No file selected"}
                     </p>
                   </div>
 
@@ -338,24 +352,25 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
 
               <div>
                 <p className="mb-6 text-sm text-secondary">
-                  Please review and edit the extracted information below:
+                  {processingMode === "manual"
+                    ? "Enter a title and choose a folder to save this document."
+                    : "Please review and edit the extracted information below:"}
                 </p>
                 <ConfirmDocumentForm
-                  defaultValues={aiResult}
+                  mode={processingMode}
+                  defaultValues={confirmDefaults}
                   defaultFolderId={effectiveFolderId}
                   onConfirm={handleConfirmDocument}
                   onCancel={handleCancel}
-                  isLoading={createDocument.isLoading}
+                  isLoading={createDocument.isLoading || confirmDocument.isLoading}
                 />
               </div>
             </div>
-            ) : null
-          )}
+          ) : null}
 
-          {state === "SUCCESS" && (
-            mode === "single" ? (
+          {state === "SUCCESS" && mode === "single" ? (
             <div className="space-y-4 py-8 text-center">
-              <div className="mx-auto h-12 w-12 rounded bg-green-100 flex items-center justify-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded bg-green-100">
                 <svg
                   className="h-6 w-6 text-green-600"
                   fill="none"
@@ -372,11 +387,11 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
               </div>
               <h3 className="text-lg font-semibold text-foreground">Upload Complete</h3>
               <p className="text-sm text-secondary">
-                Your document has been successfully uploaded and categorized.
+                Your document has been successfully uploaded
+                {processingMode === "manual" ? "." : " and categorized."}
               </p>
             </div>
-            ) : null
-          )}
+          ) : null}
         </div>
       </div>
     </>

@@ -25,7 +25,9 @@ import { uploadApi } from "@/api/upload.api";
 import { useCreateCategory, useGetCategories } from "@/lib/hooks/useCategories";
 import { useCreateFolder, useGetRootFolders } from "@/lib/hooks/useFolders";
 import { useProcessDocument, useUpdateDocument } from "@/lib/hooks/useDocuments";
-import { extractText } from "@/lib/ocr";
+import { extractTextFromFile } from "@/lib/extract-text";
+import { DocumentTypeIcon } from "@/components/documents/DocumentTypeIcon";
+import { getDocumentFileMeta } from "@/lib/upload-file-types";
 import type { Document, UpdateDocumentInput } from "@/types/document";
 
 type NullableId = { id?: string | null; name?: string | null };
@@ -86,39 +88,6 @@ function formatDisplayDate(value?: string | null) {
     day: "numeric",
     year: "numeric",
   });
-}
-
-function getFileMeta(fileName: string | undefined) {
-  const extension = fileName?.split(".").pop()?.toLowerCase() ?? "";
-
-  switch (extension) {
-    case "png":
-    case "jpg":
-    case "jpeg":
-    case "gif":
-    case "webp":
-      return {
-        label: "Image file",
-        icon: <FileText className="h-5 w-5 text-sky-600" />,
-      };
-    case "xls":
-    case "xlsx":
-    case "csv":
-      return {
-        label: "Spreadsheet",
-        icon: <FileText className="h-5 w-5 text-emerald-600" />,
-      };
-    case "pdf":
-      return {
-        label: "PDF document",
-        icon: <FileText className="h-5 w-5 text-red-600" />,
-      };
-    default:
-      return {
-        label: extension ? `${extension.toUpperCase()} file` : "Document",
-        icon: <FileText className="h-5 w-5 text-slate-600" />,
-      };
-  }
 }
 
 function formatFileSize(bytes?: number | null) {
@@ -235,7 +204,7 @@ export function DocumentDetails({
 
   if (!isOpen || !portalTarget) return null;
 
-  const fileMeta = getFileMeta(document?.fileName ?? "");
+  const fileMeta = getDocumentFileMeta(document?.fileName ?? "");
 
   const handleFieldChange = <K extends keyof UpdateDocumentInput>(
     field: K,
@@ -255,7 +224,7 @@ export function DocumentDetails({
     setIsProcessingReplacement(true);
 
     try {
-      const text = await extractText(file);
+      const text = await extractTextFromFile(file);
       const aiResult = await processDocument.mutateAsync(text);
       const matchedCategory = categories.find(
         (category) =>
@@ -503,12 +472,10 @@ export function DocumentDetails({
 
               <div className="rounded border border-default bg-surface p-5 shadow-sm">
                 <div className="flex items-center gap-4">
-                  <div className="grid h-14 w-14 place-items-center rounded bg-[var(--color-bg-secondary)]">
-                    {fileMeta.icon}
-                  </div>
+                  <DocumentTypeIcon fileName={document.fileName ?? ""} size="lg" />
                   <div className="min-w-0">
                     <p className="text-xs uppercase tracking-[0.24em] text-secondary">
-                      {fileMeta.label}
+                      {fileMeta.typeLabel}
                     </p>
                     {readOnly ? (
                       <h2 className="truncate text-xl font-semibold text-foreground">

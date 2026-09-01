@@ -9,13 +9,14 @@ import {
   ChevronRight,
   Download,
   Eye,
-  FileText,
   FolderOpen,
   LibraryBig,
   Search,
   Share2,
   SlidersHorizontal,
 } from "lucide-react";
+import { DocumentTypeIcon } from "@/components/documents/DocumentTypeIcon";
+import { getFileTypeFromName } from "@/lib/upload-file-types";
 import { SearchHighlight } from "@/components/search/SearchHighlight";
 import { AppSelect } from "@/components/ui/AppSelect";
 import { DocumentDetails } from "@/components/documents/DocumentDetails";
@@ -82,27 +83,6 @@ export default function DashboardSearchPage() {
     setFolderId(undefined);
     setPage(1);
   };
-
-  function getFileType(fileName: string) {
-    const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
-
-    switch (extension) {
-      case "png":
-      case "jpg":
-      case "jpeg":
-      case "gif":
-      case "webp":
-        return `image/${extension === "jpg" ? "jpeg" : extension}`;
-      case "pdf":
-        return "application/pdf";
-      case "xls":
-      case "xlsx":
-      case "csv":
-        return "application/vnd.ms-excel";
-      default:
-        return "application/octet-stream";
-    }
-  }
 
   const statusLine = useMemo(() => {
     if (!canSearch) {
@@ -290,9 +270,7 @@ export default function DashboardSearchPage() {
                     className="rounded-2xl border border-default bg-surface p-4 shadow-sm transition hover:border-primary/40"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[var(--color-bg-secondary)]">
-                        <FileText className="h-5 w-5 text-primary" />
-                      </div>
+                      <DocumentTypeIcon fileName={document.fileName} size="sm" />
                       <div className="min-w-0 flex-1">
                         <button
                           type="button"
@@ -489,7 +467,7 @@ export default function DashboardSearchPage() {
           onClose={() => setPreviewDocument(null)}
           fileUrl={previewDocument.fileUrl}
           fileName={previewDocument.fileName}
-          fileType={getFileType(previewDocument.fileName)}
+          fileType={getFileTypeFromName(previewDocument.fileName)}
         />
       ) : null}
     </div>

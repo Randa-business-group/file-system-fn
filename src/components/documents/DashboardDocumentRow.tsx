@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ExternalLink, Eye, FileImage, FileSpreadsheet, FileText, MoreHorizontal, Download } from "lucide-react";
+import { ExternalLink, Eye, MoreHorizontal, Download } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DocumentPreview } from "@/components/ui/DocumentPreview";
+import { DocumentTypeIcon } from "@/components/documents/DocumentTypeIcon";
+import { getDocumentFileMeta } from "@/lib/upload-file-types";
 import type { Document } from "@/types/document";
 
 interface DashboardDocumentRowProps {
@@ -12,43 +14,6 @@ interface DashboardDocumentRowProps {
   onOpen: (document: Document) => void;
   onDownload: (document: Document) => void;
   extraAction?: ReactNode;
-}
-
-function getFileMeta(fileName: string) {
-  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
-
-  switch (extension) {
-    case "png":
-    case "jpg":
-    case "jpeg":
-    case "gif":
-    case "webp":
-      return { 
-        icon: <FileImage className="h-4 w-4 text-sky-600" />, 
-        label: "Image",
-        mimeType: `image/${extension === "jpg" ? "jpeg" : extension}`,
-      };
-    case "xls":
-    case "xlsx":
-    case "csv":
-      return { 
-        icon: <FileSpreadsheet className="h-4 w-4 text-emerald-600" />, 
-        label: "Spreadsheet",
-        mimeType: "application/vnd.ms-excel",
-      };
-    case "pdf":
-      return { 
-        icon: <FileText className="h-4 w-4 text-red-600" />, 
-        label: "PDF",
-        mimeType: "application/pdf",
-      };
-    default:
-      return { 
-        icon: <FileText className="h-4 w-4 text-slate-600" />, 
-        label: extension ? extension.toUpperCase() : "File",
-        mimeType: "application/octet-stream",
-      };
-  }
 }
 
 function getOwnerName(document: Document) {
@@ -65,7 +30,7 @@ function getOwnerName(document: Document) {
 export function DashboardDocumentRow({ document, onDetails, onOpen, onDownload, extraAction }: DashboardDocumentRowProps) {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
-  const fileMeta = getFileMeta(document.fileName);
+  const fileMeta = getDocumentFileMeta(document.fileName);
   const ownerName = getOwnerName(document);
   const formattedDate = new Date(document.updatedAt || document.createdAt).toLocaleDateString(undefined, {
     month: "short",
@@ -80,62 +45,51 @@ export function DashboardDocumentRow({ document, onDetails, onOpen, onDownload, 
         className={`grid items-center gap-4 border-b border-default px-4 py-4 text-sm text-foreground ${rowGridColumns}`}
       >
         <div className="flex min-w-0 items-center gap-3">
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--color-bg-secondary)]">
-            {fileMeta.icon}
-          </div>
+          <DocumentTypeIcon fileName={document.fileName} size="sm" />
           <div className="min-w-0">
             <button
               type="button"
               onClick={() => onDetails(document)}
-              className="w-full truncate text-left text-sm font-semibold text-foreground transition hover:text-primary"
+              className="block max-w-full truncate text-left font-medium text-foreground transition hover:text-primary"
             >
               {document.title || document.fileName}
             </button>
-            <p className="mt-1 truncate text-xs text-secondary">
-              {document.folder?.name ?? "No folder"}
-            </p>
+            <p className="truncate text-xs text-secondary">{ownerName}</p>
           </div>
         </div>
 
-        <div className="truncate text-secondary">{ownerName}</div>
-        <div className="truncate text-secondary">{formattedDate}</div>
-        <div className="flex items-center gap-2 truncate text-secondary">
-          <span className="inline-flex rounded-full bg-[var(--color-bg-secondary)] px-2 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-secondary">
-            {document.category?.name ?? "Uncategorized"}
-          </span>
-        </div>
+        <p className="truncate text-secondary">{formattedDate}</p>
+        <p className="truncate text-secondary">{fileMeta.typeLabel}</p>
+        <p className="truncate text-secondary">{document.category?.name ?? "Unsorted"}</p>
+
         <div className="flex items-center justify-end gap-2">
+          {extraAction}
           <button
             type="button"
-            onClick={() => onOpen(document)}
-            className="inline-flex h-9 items-center justify-center border border-default bg-surface px-3 text-xs font-semibold text-foreground transition hover:bg-[var(--color-bg-secondary)]"
+            onClick={() => setIsPreviewOpen(true)}
+            className="inline-flex h-9 items-center justify-center rounded-lg border border-default px-3 text-xs font-medium text-foreground transition hover:bg-[var(--color-bg-secondary)]"
           >
-            Open
+            <Eye className="mr-1.5 h-3.5 w-3.5" />
+            Preview
           </button>
-          {extraAction ?? (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                className="inline-flex h-9 w-9 items-center justify-center border border-default bg-surface text-secondary transition hover:bg-[var(--color-bg-secondary)]"
-                ariaLabel={`Document actions for ${document.title || document.fileName}`}
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[180px]">
-                <DropdownMenuItem onClick={() => onDetails(document)} className="flex items-center gap-2 text-foreground">
-                  <Eye className="h-4 w-4" />
-                  Details
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onOpen(document)} className="flex items-center gap-2 text-foreground">
-                  <ExternalLink className="h-4 w-4" />
-                  Open
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDownload(document)} className="flex items-center gap-2 text-foreground">
-                  <Download className="h-4 w-4" />
-                  Download
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="inline-flex h-9 w-9 items-center justify-center border border-default text-secondary transition hover:bg-[var(--color-bg-tertiary)] hover:text-foreground"
+              ariaLabel={`Document actions for ${document.title || document.fileName}`}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[160px]">
+              <DropdownMenuItem onClick={() => onOpen(document)}>
+                <ExternalLink className="h-4 w-4" />
+                Open
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onDownload(document)}>
+                <Download className="h-4 w-4" />
+                Download
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

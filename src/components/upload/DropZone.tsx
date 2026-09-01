@@ -1,10 +1,16 @@
 "use client";
 
-import { Upload, FileText, X } from "lucide-react";
+import { Upload, X } from "lucide-react";
 import Image from "next/image";
+import { DocumentTypeIcon } from "@/components/documents/DocumentTypeIcon";
+import {
+  getUploadFileKind,
+  isSupportedUploadFile,
+  UPLOAD_ACCEPT,
+} from "@/lib/upload-file-types";
 
 interface DropZoneProps {
-  onFileSelected: (file: File) => void;
+  onFileSelected: (file: File | null) => void;
   selectedFile?: File | null;
 }
 
@@ -37,38 +43,13 @@ export function DropZone({ onFileSelected, selectedFile }: DropZoneProps) {
     }
   };
 
-  const isValidFile = (file: File): boolean => {
-    const validTypes = [
-      "application/pdf",
-      "image/jpeg",
-      "image/png",
-      "image/gif",
-      "image/webp",
-    ];
-    return validTypes.includes(file.type);
-  };
+  const isValidFile = (file: File): boolean => isSupportedUploadFile(file);
 
   const getFilePreview = () => {
     if (!selectedFile) return null;
 
-    const isPdf = selectedFile.type === "application/pdf";
-    const isImage = selectedFile.type.startsWith("image/");
-
-    if (isPdf) {
-      return (
-        <div className="flex items-center gap-2">
-          <FileText className="h-8 w-8 text-red-600" />
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              {selectedFile.name}
-            </p>
-            <p className="text-xs text-secondary">
-              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-            </p>
-          </div>
-        </div>
-      );
-    }
+    const kind = getUploadFileKind(selectedFile);
+    const isImage = kind === "image";
 
     if (isImage) {
       return (
@@ -87,6 +68,20 @@ export function DropZone({ onFileSelected, selectedFile }: DropZoneProps) {
         </div>
       );
     }
+
+    return (
+      <div className="flex items-center gap-3">
+        <DocumentTypeIcon fileName={selectedFile.name} fileType={selectedFile.type} size="md" />
+        <div>
+          <p className="text-sm font-medium text-foreground">
+            {selectedFile.name}
+          </p>
+          <p className="text-xs text-secondary">
+            {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+          </p>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -97,7 +92,7 @@ export function DropZone({ onFileSelected, selectedFile }: DropZoneProps) {
             <div>{getFilePreview()}</div>
             <button
               type="button"
-              onClick={() => onFileSelected(null as any)}
+              onClick={() => onFileSelected(null)}
               className="rounded-full p-2 hover:bg-[var(--color-bg-secondary)]"
             >
               <X className="h-5 w-5" />
@@ -119,7 +114,7 @@ export function DropZone({ onFileSelected, selectedFile }: DropZoneProps) {
           <Upload className="mx-auto h-12 w-12 text-secondary" />
           <p className="mt-4 text-sm text-foreground">Drag & drop or click to browse</p>
           <p className="mt-1 text-xs text-secondary">
-            Accepts PDF and image files
+            Supports PDF, Word, Excel, CSV and images
           </p>
           <label
             htmlFor="file-input"
@@ -133,7 +128,7 @@ export function DropZone({ onFileSelected, selectedFile }: DropZoneProps) {
       <input
         id="file-input"
         type="file"
-        accept=".pdf,image/*"
+        accept={UPLOAD_ACCEPT}
         onChange={handleFileInputChange}
         className="hidden"
       />

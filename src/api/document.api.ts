@@ -12,6 +12,7 @@ import type {
   RenameDocumentInput,
   UpdateDocumentInput,
   ConfirmDocumentData,
+  BulkUploadItem,
 } from "@/types/document";
 
 type DocumentApiRecord = {
@@ -176,12 +177,24 @@ export const documentApi = {
   },
 
   async bulkUpload(
-    files: File[],
+    items: BulkUploadItem[],
     folderId?: string,
   ): Promise<{ saved: Document[]; failed: { fileName: string; reason: string }[] }> {
     const form = new FormData();
-    files.forEach((f) => form.append('files', f));
-    if (folderId) form.append('folderId', folderId);
+    items.forEach((item) => form.append("files", item.file));
+    form.append(
+      "modes",
+      JSON.stringify(items.map((item) => item.mode)),
+    );
+    form.append(
+      "fileTypes",
+      JSON.stringify(items.map((item) => item.fileType)),
+    );
+    form.append(
+      "fileNames",
+      JSON.stringify(items.map((item) => item.fileName)),
+    );
+    if (folderId) form.append("folderId", folderId);
 
     const response = await apiClient.postFormData<
       ApiSuccessEnvelope<{

@@ -4,27 +4,55 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Upload,
-  FileText,
   X,
   Check,
   AlertCircle,
   Loader2,
   Sparkles,
   ExternalLink,
+  Pencil,
 } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/Modal";
 import { useBulkUpload } from "@/lib/hooks/useDocuments";
-import type { BulkUploadFile } from "@/types/document";
+import type { BulkUploadFile, UploadProcessingMode } from "@/types/document";
+import { DocumentTypeIcon } from "@/components/documents/DocumentTypeIcon";
+import {
+  getUploadFileKind,
+  isSupportedUploadFile,
+  UPLOAD_ACCEPT,
+} from "@/lib/upload-file-types";
 
 const MAX_FILES = 15;
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 interface BulkUploadDrawerProps {
   isOpen?: boolean;
   onClose?: () => void;
   embedded?: boolean;
+}
+
+function FileTypeIcon({ file }: { file: BulkUploadFile }) {
+  const kind = getUploadFileKind({
+    type: file.file.type,
+    name: file.fileName,
+  });
+
+  if (kind === "image") {
+    return (
+      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg ring-1 ring-default">
+        <Image
+          src={file.preview}
+          alt={file.fileName}
+          fill
+          className="object-cover"
+        />
+      </div>
+    );
+  }
+
+  return <DocumentTypeIcon fileName={file.fileName} size="sm" />;
 }
 
 export function BulkUploadDrawer({
@@ -37,16 +65,8 @@ export function BulkUploadDrawer({
   const [allComplete, setAllComplete] = useState(false);
   const bulkUpload = useBulkUpload();
 
-  const isValidFile = (file: File): boolean => {
-    const validTypes = [
-      "application/pdf",
-      "image/jpeg",
-      "image/png",
-      "image/gif",
-      "image/webp",
-    ];
-    return validTypes.includes(file.type) && file.size <= MAX_FILE_SIZE;
-  };
+  const isValidFile = (file: File): boolean =>
+    isSupportedUploadFile(file) && file.size <= MAX_FILE_SIZE;
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -79,7 +99,7 @@ export function BulkUploadDrawer({
         if (f.size > MAX_FILE_SIZE) {
           toast.error(`File ${f.name} exceeds 10MB limit`);
         } else {
-          toast.error(`File ${f.name} is not a supported PDF or image`);
+          toast.error(`File ${f.name} is not a supported file type`);
         }
       });
       return;
@@ -90,6 +110,8 @@ export function BulkUploadDrawer({
       fileName: file.name,
       preview: URL.createObjectURL(file),
       size: file.size,
+      fileType: getUploadFileKind(file),
+      mode: "ai",
       status: "pending",
     }));
 
@@ -113,6 +135,14 @@ export function BulkUploadDrawer({
     });
   };
 
+  const handleModeChange = (index: number, mode: UploadProcessingMode) => {
+    setFiles((prev) => {
+      const newFiles = [...prev];
+      newFiles[index] = { ...newFiles[index], mode };
+      return newFiles;
+    });
+  };
+
   const handleUploadAll = async () => {
     if (files.length === 0) return;
 
@@ -127,21 +157,35 @@ export function BulkUploadDrawer({
       })),
     );
 
-    const rawFiles = files.map((item) => item.file);
+    const items = files.map((item) => ({
+      file: item.file,
+      fileName: item.fileName,
+      fileType: item.fileType,
+      mode: item.mode,
+    }));
 
     try {
-      const { saved, failed } = await bulkUpload.mutateAsync({ files: rawFiles });
+      const { saved, failed } = await bulkUpload.mutateAsync({ items });
 
-      const savedNames = new Set(saved.map((doc) => doc.fileName));
+      const savedByName = new Map(
+        saved.map((doc) => [doc.fileName, doc]),
+      );
       const failedByName = new Map(
         failed.map((entry) => [entry.fileName, entry.reason]),
       );
 
       setFiles((prev) =>
         prev.map((item) => {
-          if (savedNames.has(item.file.name) || savedNames.has(item.fileName)) {
+          const savedDoc =
+            savedByName.get(item.file.name) ?? savedByName.get(item.fileName);
+
+          if (savedDoc) {
+            if (item.mode === "manual" || savedDoc.processingStatus === "confirmed") {
+              return { ...item, status: "done" as const };
+            }
             return { ...item, status: "queued" as const };
           }
+
           const reason =
             failedByName.get(item.file.name) ?? failedByName.get(item.fileName);
           if (reason) {
@@ -153,11 +197,22 @@ export function BulkUploadDrawer({
 
       setAllComplete(true);
 
+      const manualCount = files.filter((file) => file.mode === "manual").length;
+      const aiCount = files.length - manualCount;
+
       if (saved.length === 0) {
         toast.error("No files were uploaded.");
       } else if (failed.length > 0) {
         toast.warning(
-          `${saved.length} file${saved.length === 1 ? "" : "s"} queued in Tray. ${failed.length} failed to upload.`,
+          `${saved.length} file${saved.length === 1 ? "" : "s"} uploaded. ${failed.length} failed.`,
+        );
+      } else if (aiCount > 0 && manualCount > 0) {
+        toast.success(
+          `${manualCount} saved immediately. ${aiCount} queued for AI analysis in Tray.`,
+        );
+      } else if (manualCount > 0) {
+        toast.success(
+          `${manualCount} file${manualCount === 1 ? "" : "s"} saved immediately.`,
         );
       } else {
         toast.success(
@@ -191,12 +246,14 @@ export function BulkUploadDrawer({
   const canClose = !isUploading;
   const showProgressStep = isUploading || allComplete;
   const queuedCount = files.filter((f) => f.status === "queued").length;
+  const doneCount = files.filter((f) => f.status === "done").length;
 
   const content = (
     <>
       <div className="space-y-6">
         <p className="text-sm text-secondary">
-          Files upload first, then OCR and AI run <strong className="font-medium text-foreground">one at a time</strong>. You can close this panel and watch progress on Tray.
+          Choose AI or manual per file. AI files upload first, then OCR and AI run{" "}
+          <strong className="font-medium text-foreground">one at a time</strong>.
         </p>
 
         {!showProgressStep && (
@@ -211,7 +268,7 @@ export function BulkUploadDrawer({
                 Drag & drop or click to browse
               </p>
               <p className="mt-1 text-xs text-secondary">
-                PDF or images only · max {MAX_FILES} files · 10MB each
+                Supports PDF, Word, Excel, CSV and images · max {MAX_FILES} files · 10MB each
               </p>
               <label
                 htmlFor="bulk-file-input"
@@ -228,32 +285,47 @@ export function BulkUploadDrawer({
                 </p>
                 {files.map((file, index) => (
                   <div
-                    key={index}
-                    className="flex items-center gap-3 rounded border border-default bg-[var(--color-bg-secondary)] p-3"
+                    key={`${file.fileName}-${index}`}
+                    className="flex items-start gap-3 rounded border border-default bg-[var(--color-bg-secondary)] p-3"
                   >
-                    {file.file.type === "application/pdf" ? (
-                      <FileText className="h-5 w-5 shrink-0 text-red-600" />
-                    ) : (
-                      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded">
-                        <Image
-                          src={file.preview}
-                          alt={file.fileName}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                    )}
+                    <FileTypeIcon file={file} />
 
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 space-y-2">
                       <input
                         type="text"
                         value={file.fileName}
                         onChange={(e) => handleRenameFile(index, e.target.value)}
                         className="w-full rounded border border-default bg-surface px-2 py-1 text-xs text-foreground placeholder-secondary focus:border-primary focus:outline-none"
                       />
-                      <p className="mt-1 text-xs text-secondary">
+                      <p className="text-xs text-secondary">
                         {(file.size / 1024 / 1024).toFixed(2)} MB
                       </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleModeChange(index, "ai")}
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                            file.mode === "ai"
+                              ? "bg-primary text-primary-foreground"
+                              : "border border-default bg-surface text-secondary"
+                          }`}
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          AI
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleModeChange(index, "manual")}
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                            file.mode === "manual"
+                              ? "bg-[var(--color-bg-tertiary)] text-foreground"
+                              : "border border-default bg-surface text-secondary"
+                          }`}
+                        >
+                          <Pencil className="h-3 w-3" />
+                          Manual
+                        </button>
+                      </div>
                     </div>
 
                     <button
@@ -276,7 +348,7 @@ export function BulkUploadDrawer({
                 className="inline-flex w-full items-center justify-center gap-2 rounded bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover disabled:opacity-50"
               >
                 <Sparkles className="h-4 w-4" />
-                Upload to Tray
+                Upload Files
               </button>
             )}
           </div>
@@ -292,7 +364,7 @@ export function BulkUploadDrawer({
                     Uploading files…
                   </p>
                   <p className="text-xs text-secondary">
-                    AI analysis starts on Tray, one document at a time.
+                    Manual files save immediately. AI files continue on Tray.
                   </p>
                 </div>
               </div>
@@ -317,9 +389,17 @@ export function BulkUploadDrawer({
               </div>
             )}
 
+            {allComplete && doneCount > 0 && queuedCount === 0 && (
+              <div className="rounded border border-green-200/80 bg-green-50/80 px-4 py-3 text-sm text-green-900">
+                <p className="font-medium">
+                  {doneCount} document{doneCount === 1 ? "" : "s"} saved immediately
+                </p>
+              </div>
+            )}
+
             {files.map((file, index) => (
               <div
-                key={index}
+                key={`${file.fileName}-progress-${index}`}
                 className="flex items-center gap-3 rounded border border-default bg-[var(--color-bg-secondary)] p-3"
               >
                 {file.status === "pending" && (
@@ -349,6 +429,9 @@ export function BulkUploadDrawer({
                     <p className="text-xs text-amber-700">
                       In Tray — waiting for AI (one-by-one)
                     </p>
+                  )}
+                  {file.status === "done" && (
+                    <p className="text-xs text-green-700">Saved immediately</p>
                   )}
                   {file.error && (
                     <p className="text-xs text-red-600">{file.error}</p>
@@ -386,7 +469,7 @@ export function BulkUploadDrawer({
         id="bulk-file-input"
         type="file"
         multiple
-        accept=".pdf,image/*"
+        accept={UPLOAD_ACCEPT}
         onChange={handleFileInputChange}
         className="hidden"
       />

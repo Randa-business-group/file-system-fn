@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileText, Library, Send } from "lucide-react";
+import { Library, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/Modal";
 import { RoleBadge } from "@/components/ui/Badge";
+import { DocumentTypeIcon } from "@/components/documents/DocumentTypeIcon";
 import { useAuth } from "@/lib/auth-context";
 import { useMarkShareAsRead, useReplyToShare } from "@/lib/hooks/useSharing";
 import { formatTimeAgo } from "@/lib/format-time";
@@ -64,13 +65,16 @@ export function ShareReplyModal({ isOpen, onClose, share }: ShareReplyModalProps
       <div className="space-y-4">
         <div className="rounded-2xl border border-default bg-[var(--color-bg-secondary)]/50 p-4">
           <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-surface text-primary">
-              {share.collection ? (
+            {share.collection ? (
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-surface text-primary">
                 <Library className="h-5 w-5" />
-              ) : (
-                <FileText className="h-5 w-5" />
-              )}
-            </div>
+              </div>
+            ) : (
+              <DocumentTypeIcon
+                fileName={share.document?.fileName ?? itemName}
+                size="md"
+              />
+            )}
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-foreground">{itemName}</p>
               {share.document?.category ? (

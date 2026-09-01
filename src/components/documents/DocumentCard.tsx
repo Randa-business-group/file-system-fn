@@ -11,7 +11,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DocumentPreview } from "@/components/ui/DocumentPreview";
+import { DocumentTypeIcon } from "@/components/documents/DocumentTypeIcon";
 import { useDeleteDocument } from "@/lib/hooks/useDocuments";
+import { getFileTypeFromName } from "@/lib/upload-file-types";
 import { toast } from "sonner";
 import type { Document } from "@/types/document";
 
@@ -19,28 +21,6 @@ interface DocumentCardProps {
   document: Document;
   onDetails?: (document: Document) => void;
 }
-
-function getFileType(fileName: string): string {
-  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
-
-  switch (extension) {
-    case "png":
-    case "jpg":
-    case "jpeg":
-    case "gif":
-    case "webp":
-      return `image/${extension === "jpg" ? "jpeg" : extension}`;
-    case "pdf":
-      return "application/pdf";
-    case "xls":
-    case "xlsx":
-    case "csv":
-      return "application/vnd.ms-excel";
-    default:
-      return "application/octet-stream";
-  }
-}
-
 
 export function DocumentCard({ document, onDetails }: DocumentCardProps) {
   const deleteDocument = useDeleteDocument();
@@ -64,7 +44,7 @@ export function DocumentCard({ document, onDetails }: DocumentCardProps) {
   const uploadedBy = document.uploadedBy?.name || "Unknown";
   const uploadedDate = new Date(document.createdAt).toLocaleDateString();
   const categoryName = document.category?.name || "Uncategorized";
-  const fileType = getFileType(document.fileName);
+  const fileType = getFileTypeFromName(document.fileName);
 
   const handleDownload = () => {
     const link = window.document.createElement("a");
@@ -78,7 +58,8 @@ export function DocumentCard({ document, onDetails }: DocumentCardProps) {
   return (
     <>
       <div className="rounded-2xl border border-default bg-surface p-4 transition hover:border-primary hover:shadow-sm">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-3">
+          <DocumentTypeIcon fileName={document.fileName} size="sm" className="mt-0.5" />
           <div className="flex-1 min-w-0">
             <h3 className="truncate text-sm font-semibold text-foreground">
               {onDetails ? (

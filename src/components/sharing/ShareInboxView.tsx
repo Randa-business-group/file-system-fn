@@ -6,7 +6,6 @@ import {
   Download,
   Eye,
   ExternalLink,
-  FileText,
   FolderOpen,
   Library,
   MessageSquare,
@@ -15,6 +14,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { normalizeShare } from "@/api/sharing.api";
+import { DocumentTypeIcon } from "@/components/documents/DocumentTypeIcon";
 import { ShareReplyModal } from "@/components/sharing/ShareReplyModal";
 import { DocumentPreview } from "@/components/ui/DocumentPreview";
 import { RoleBadge } from "@/components/ui/Badge";
@@ -227,15 +227,20 @@ export function ShareInboxView({ mode }: ShareInboxViewProps) {
                 </div>
 
                 <div className="mt-3 flex items-start gap-3 rounded-xl bg-[var(--color-bg-secondary)]/60 p-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface text-primary">
-                    {share.collection ? (
+                  {share.collection ? (
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface text-primary">
                       <Library className="h-5 w-5" />
-                    ) : share.folder ? (
+                    </div>
+                  ) : share.folder ? (
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface text-primary">
                       <FolderOpen className="h-5 w-5" />
-                    ) : (
-                      <FileText className="h-5 w-5" />
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <DocumentTypeIcon
+                      fileName={share.document?.fileName ?? itemName}
+                      size="sm"
+                    />
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-foreground">
                       {itemName}

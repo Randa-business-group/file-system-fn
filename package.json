@@ -16,6 +16,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.14.0",
+    "mammoth": "^1.12.2",
     "next": "16.2.6",
     "npm": "^11.16.0",
     "pdfjs-dist": "^5.7.284",
@@ -28,6 +29,7 @@
     "tailwind-merge": "^3.6.0",
     "tesseract.js": "^7.0.0",
     "use-debounce": "^10.1.1",
+    "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {

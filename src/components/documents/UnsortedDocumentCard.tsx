@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import {
   Eye,
-  FileText,
   FolderPlus,
   Pencil,
   Trash2,
@@ -11,6 +10,7 @@ import {
 import { toast } from "sonner";
 import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
 import { AppSelect } from "@/components/ui/AppSelect";
+import { DocumentTypeIcon } from "@/components/documents/DocumentTypeIcon";
 import { MoveFolderModal } from "./MoveFolderModal";
 import { useDeleteDocument, useRenameDocument, useConfirmDocument } from "@/lib/hooks/useDocuments";
 import { useGetCategories } from "@/lib/hooks/useCategories";
@@ -110,9 +110,7 @@ export function UnsortedDocumentCard({ document }: InboxDocumentCardProps) {
     <div className={["rounded-3xl border border-default bg-surface p-5 shadow-sm", status === 'confirmed' ? 'opacity-80' : ''].join(' ')}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-3xl bg-primary-subtle text-primary">
-            <FileText className="h-5 w-5" />
-          </div>
+          <DocumentTypeIcon fileName={document.fileName} size="lg" />
           <div className="min-w-0">
             <h3 className="truncate text-lg font-semibold text-foreground">{document.fileName}</h3>
             <p className="mt-2 text-sm text-secondary">Uploaded by {document.uploadedBy.name}</p>

@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
-  FileText,
   FolderOpen,
   LibraryBig,
   Search,
   Share2,
 } from "lucide-react";
+import { DocumentTypeIcon } from "@/components/documents/DocumentTypeIcon";
 import { SearchHighlight } from "@/components/search/SearchHighlight";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { useGlobalSearch } from "@/lib/hooks/useSearch";
@@ -84,9 +84,7 @@ function DocumentResultRow({
       onClick={handleClick}
       className="flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-[var(--color-bg-secondary)]"
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-subtle text-primary">
-        <FileText className="h-4 w-4" />
-      </div>
+      <DocumentTypeIcon fileName={doc.fileName} size="sm" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground">{title}</p>
         {subtitle ? (

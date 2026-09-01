@@ -12,6 +12,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
+import { DocumentTypeIcon } from "@/components/documents/DocumentTypeIcon";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import {
@@ -159,9 +160,13 @@ export default function TrashPage() {
                 className="flex flex-col gap-4 rounded-2xl border border-default bg-surface p-4 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex min-w-0 items-start gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-subtle text-primary">
-                    <Icon className="h-5 w-5" />
-                  </div>
+                  {item.type === TrashItemType.DOCUMENT ? (
+                    <DocumentTypeIcon fileName={item.name} size="md" />
+                  ) : (
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-subtle text-primary">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                  )}
                   <div className="min-w-0">
                     <p className="truncate font-medium text-foreground">
                       {item.name}

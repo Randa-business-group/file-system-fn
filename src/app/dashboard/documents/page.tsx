@@ -9,30 +9,10 @@ import { DocumentDetails } from "@/components/documents/DocumentDetails";
 import { DocumentPreview } from "@/components/ui/DocumentPreview";
 import { SortBar } from "@/components/ui/SortBar";
 import { AppSelect } from "@/components/ui/AppSelect";
+import { getFileTypeFromName } from "@/lib/upload-file-types";
 import type { Document, DocumentFilters, SortOption } from "@/types/document";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
-
-function getFileType(fileName: string) {
-  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
-
-  switch (extension) {
-    case "png":
-    case "jpg":
-    case "jpeg":
-    case "gif":
-    case "webp":
-      return `image/${extension === "jpg" ? "jpeg" : extension}`;
-    case "pdf":
-      return "application/pdf";
-    case "xls":
-    case "xlsx":
-    case "csv":
-      return "application/vnd.ms-excel";
-    default:
-      return "application/octet-stream";
-  }
-}
 
 export default function DashboardDocumentsPage() {
   const [filters, setFilters] = useState<DocumentFilters>({
@@ -282,7 +262,7 @@ export default function DashboardDocumentsPage() {
         onClose={() => setPreviewDocument(null)}
         fileUrl={previewDocument?.fileUrl ?? ""}
         fileName={previewDocument?.fileName ?? ""}
-        fileType={previewDocument ? getFileType(previewDocument.fileName) : "application/octet-stream"}
+        fileType={previewDocument ? getFileTypeFromName(previewDocument.fileName) : "application/octet-stream"}
       />
     </div>
   );

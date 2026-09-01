@@ -7,12 +7,12 @@ import {
   ArrowLeft,
   Download,
   Eye,
-  FileText,
   FolderOpen,
   Library,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DocumentDetails } from "@/components/documents/DocumentDetails";
+import { DocumentTypeIcon } from "@/components/documents/DocumentTypeIcon";
 import { DashboardDocumentRow } from "@/components/documents/DashboardDocumentRow";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { DocumentPreview } from "@/components/ui/DocumentPreview";
@@ -110,15 +110,20 @@ export default function InboxShareDetailPage() {
 
       <div className="rounded-2xl border border-default bg-surface p-5 shadow-sm">
         <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            {share.collection ? (
+          {share.collection ? (
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <Library className="h-5 w-5" />
-            ) : share.folder ? (
+            </div>
+          ) : share.folder ? (
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <FolderOpen className="h-5 w-5" />
-            ) : (
-              <FileText className="h-5 w-5" />
-            )}
-          </div>
+            </div>
+          ) : (
+            <DocumentTypeIcon
+              fileName={share.document?.fileName ?? title}
+              size="md"
+            />
+          )}
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-secondary">
               {shareKind} shared by {share.sharedBy.name}

@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, FileText } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { DocumentTypeIcon } from "@/components/documents/DocumentTypeIcon";
+import { DocumentTypeChip } from "@/components/documents/DocumentTypeIcon";
 import { useGetRecentDocuments } from "@/lib/hooks/useAnalytics";
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
-import { Badge } from "@/components/ui/Badge";
+import { formatTimeAgo } from "@/lib/format-time";
 
 export function RecentDocumentsWidget() {
   const { data, isLoading, isError } = useGetRecentDocuments();
@@ -13,7 +15,6 @@ export function RecentDocumentsWidget() {
   return (
     <DashboardCard
       title="Recent documents"
-      description="Latest uploads in your scope"
       action={
         <Link
           href="/dashboard/documents"
@@ -27,7 +28,7 @@ export function RecentDocumentsWidget() {
       {isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, index) => (
-            <LoadingSkeleton key={index} height={52} rounded="1rem" />
+            <LoadingSkeleton key={index} height={56} rounded="1rem" />
           ))}
         </div>
       ) : isError || !data ? (
@@ -40,27 +41,25 @@ export function RecentDocumentsWidget() {
         <ul className="divide-y divide-default">
           {data.map((doc) => (
             <li key={doc.id}>
-              <div className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--color-bg-secondary)] text-primary">
-                  <FileText className="h-4 w-4" />
-                </div>
+              <Link
+                href="/dashboard/documents"
+                className="group flex items-center gap-3 py-3.5 transition first:pt-0 last:pb-0 hover:opacity-90"
+              >
+                <DocumentTypeIcon fileName={doc.fileName} size="sm" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-foreground">
+                  <p className="truncate text-sm font-semibold text-foreground group-hover:text-primary">
                     {doc.title?.trim() || doc.fileName}
                   </p>
                   <p className="mt-0.5 truncate text-xs text-secondary">
-                    {doc.uploadedBy} ·{" "}
-                    {new Date(doc.createdAt).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
+                    Updated {formatTimeAgo(doc.createdAt)}
+                    {doc.uploadedBy ? ` · ${doc.uploadedBy}` : ""}
                   </p>
                 </div>
-                {doc.category ? (
-                  <Badge label={doc.category} variant="category" />
-                ) : null}
-              </div>
+                <DocumentTypeChip
+                  fileName={doc.fileName}
+                  className="hidden shrink-0 sm:inline-flex"
+                />
+              </Link>
             </li>
           ))}
         </ul>

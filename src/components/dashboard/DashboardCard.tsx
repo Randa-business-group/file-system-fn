@@ -32,10 +32,12 @@ export function DashboardCard({
       )}
     >
       {hasHeader ? (
-        <header className="flex flex-col gap-3 border-b border-default bg-[var(--color-bg-secondary)]/40 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+        <header className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             {title ? (
-              <h3 className="text-base font-semibold text-foreground">{title}</h3>
+              <h3 className="text-base font-semibold tracking-tight text-foreground">
+                {title}
+              </h3>
             ) : null}
             {description ? (
               <p className="mt-0.5 text-sm text-secondary">{description}</p>

@@ -1,23 +1,49 @@
 "use client";
 
 import { CheckCircle, Loader } from "lucide-react";
+import {
+  getUploadFileKind,
+  isSpreadsheetKind,
+  type UploadFileKind,
+} from "@/lib/upload-file-types";
 
 interface ProcessingStateProps {
   currentStep: 1 | 2;
   isComplete: boolean;
+  fileType: string;
+  fileName?: string;
 }
 
-export function ProcessingState({ currentStep, isComplete }: ProcessingStateProps) {
-  const steps = [
-    { number: 1, text: "Reading document with OCR..." },
-    { number: 2, text: "Extracting information with AI..." },
-  ];
+function resolveKind(fileType: string, fileName?: string): UploadFileKind {
+  return getUploadFileKind({ type: fileType, name: fileName ?? "" });
+}
+
+export function ProcessingState({
+  currentStep,
+  isComplete,
+  fileType,
+  fileName,
+}: ProcessingStateProps) {
+  const kind = resolveKind(fileType, fileName);
+  const spreadsheet = isSpreadsheetKind(kind);
+
+  const steps = spreadsheet
+    ? [
+        { number: 1 as const, text: "Reading spreadsheet data..." },
+        { number: 2 as const, text: "Summarising data with AI..." },
+      ]
+    : [
+        { number: 1 as const, text: "Reading document..." },
+        { number: 2 as const, text: "Extracting information with AI..." },
+      ];
 
   return (
     <div className="space-y-6 py-8">
       {steps.map((step) => {
         const isActive = step.number === currentStep;
-        const isDone = step.number < currentStep || (step.number === currentStep && isComplete);
+        const isDone =
+          step.number < currentStep ||
+          (step.number === currentStep && isComplete);
 
         return (
           <div key={step.number} className="flex items-center gap-4">

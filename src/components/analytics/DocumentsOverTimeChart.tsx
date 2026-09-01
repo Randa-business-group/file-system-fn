@@ -29,8 +29,8 @@ export function DocumentsOverTimeChart({
 
   return (
     <DashboardCard
-      title="Documents over time"
-      description="Upload volume for the last 6 months"
+      title="Document activity"
+      description="Upload volume over the last 6 months"
     >
       <DashboardChartFrame
         isLoading={isLoading}

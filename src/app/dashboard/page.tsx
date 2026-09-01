@@ -1,65 +1,49 @@
 "use client";
 
 import { useAuth } from "@/lib/auth-context";
-import { useGetStats } from "@/lib/hooks/useAnalytics";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
-import { DashboardSection } from "@/components/dashboard/DashboardSection";
-import { StatsGrid } from "@/components/analytics/StatsGrid";
+import { OverviewStatsRow } from "@/components/analytics/OverviewStatsRow";
 import { DocumentsOverTimeChart } from "@/components/analytics/DocumentsOverTimeChart";
-import { DocumentsByCategoryChart } from "@/components/analytics/DocumentsByCategoryChart";
-import { DocumentsByBranchChart } from "@/components/analytics/DocumentsByBranchChart";
-import { MemberActivityChart } from "@/components/analytics/MemberActivityChart";
-import { StorageWidget } from "@/components/analytics/StorageWidget";
-import { RecentFoldersGrid } from "@/components/analytics/RecentFoldersGrid";
+import { StorageOverviewWidget } from "@/components/analytics/StorageOverviewWidget";
 import { RecentDocumentsWidget } from "@/components/analytics/RecentDocumentsWidget";
+import { NeedsAttentionWidget } from "@/components/analytics/NeedsAttentionWidget";
+import { RecentActivityFeed } from "@/components/analytics/RecentActivityFeed";
+import { MemberActivityChart } from "@/components/analytics/MemberActivityChart";
 
 export default function DashboardOverviewPage() {
   const { isOwner, isBranchManager, isDeptManager } = useAuth();
-  const { stats } = useGetStats();
-
   const showMemberActivity = isOwner || isBranchManager || isDeptManager;
-  const showBranchChart = isOwner;
 
   return (
-    <div className="mx-auto max-w-[1600px] space-y-8 pb-4">
-      <DashboardHero pendingTray={stats?.pendingInbox ?? 0} />
+    <div className="mx-auto max-w-[1600px] space-y-8 pb-6">
+      <DashboardHero />
 
-      <DashboardSection
-        title="Key metrics"
-        description="Counts scoped to your role and organization."
-      >
-        <StatsGrid />
-      </DashboardSection>
+      <OverviewStatsRow />
 
-      <DashboardSection
-        title="Insights"
-        description="Trends and breakdowns across your workspace."
-      >
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-          <div className="space-y-6 xl:col-span-8">
-            <DocumentsOverTimeChart />
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <DocumentsByCategoryChart />
-              {showBranchChart ? <DocumentsByBranchChart /> : null}
-            </div>
-          </div>
-
-          <aside className="space-y-6 xl:col-span-4">
-            <StorageWidget />
-            {showMemberActivity ? <MemberActivityChart /> : null}
-          </aside>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+        <div className="xl:col-span-8">
+          <DocumentsOverTimeChart />
         </div>
-      </DashboardSection>
+        <div className="xl:col-span-4">
+          <StorageOverviewWidget />
+        </div>
+      </div>
 
-      <DashboardSection
-        title="Recent activity"
-        description="Latest folders and documents."
-      >
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <NeedsAttentionWidget />
+        <RecentActivityFeed />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+        <div className={showMemberActivity ? "xl:col-span-7" : "xl:col-span-12"}>
           <RecentDocumentsWidget />
-          <RecentFoldersGrid />
         </div>
-      </DashboardSection>
+        {showMemberActivity ? (
+          <div className="xl:col-span-5">
+            <MemberActivityChart />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
