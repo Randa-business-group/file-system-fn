@@ -9,7 +9,7 @@ const ICONS = {
 
 export function ProblemSection() {
   return (
-		<section className='border-default bg-background py-20 sm:py-24'>
+		<section className='border-default bg-background py-10'>
 			<div className='mx-auto max-w-7xl px-4 sm:px-6 lg:px-8'>
 				{/* Section header */}
 				<div className='mx-auto max-w-2xl text-center'>
@@ -29,7 +29,7 @@ export function ProblemSection() {
 						return (
 							<article
 								key={point.title}
-								className='group relative rounded-2xl border border-default bg-surface p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md sm:p-8'
+								className='group relative rounded-lg border border-default bg-surface p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md sm:p-8'
 							>
 								{/* Icon */}
 								<span className='flex h-12 w-12 items-center justify-center rounded-xl bg-red-50 text-error'>
@@ -43,7 +43,7 @@ export function ProblemSection() {
 								<p className='mt-3 text-sm leading-relaxed text-secondary'>{point.description}</p>
 
 								{/* Cost callout */}
-								<div className='mt-5 flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2.5'>
+								<div className='mt-5 flex items-start gap-2 rounded-md bg-red-50 px-3 py-2.5'>
 									<AlertTriangle className='mt-0.5 h-4 w-4 shrink-0 text-error' />
 									<p className='text-xs font-medium leading-relaxed text-error'>{point.cost}</p>
 								</div>

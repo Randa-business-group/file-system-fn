@@ -68,7 +68,7 @@ export function FAQSection() {
 					</p>
 				</div>
 
-				<div className='mt-12 rounded-2xl border border-default bg-surface p-4 shadow-sm sm:p-6'>
+				<div className='mt-12 rounded-lg border border-default bg-surface p-4 shadow-sm sm:p-6'>
 					{FAQ_ITEMS.map((item) => (
 						<FAQItem
 							key={item.question}

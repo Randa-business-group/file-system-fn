@@ -29,7 +29,13 @@ export function LandingFooter() {
   const year = new Date().getFullYear();
 
   return (
-		<footer className='border-default bg-background'>
+		<footer
+			className='border-default'
+			style={{
+				background:
+					"radial-gradient(ellipse 100% 90% at 50% 100%, var(--color-primary-subtle) 0%, transparent 70%)",
+			}}
+		>
 			<div className='mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8'>
 				<div className='grid gap-10 sm:grid-cols-2 lg:grid-cols-12 lg:gap-8'>
 					<div className='sm:col-span-2 lg:col-span-5'>

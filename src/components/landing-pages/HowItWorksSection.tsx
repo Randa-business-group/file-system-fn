@@ -33,10 +33,10 @@ export function HowItWorksSection() {
 						return (
 							<article
 								key={item.step}
-								className='group relative rounded-2xl border border-default bg-surface p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md'
+								className='group relative rounded-lg border border-default bg-surface p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md'
 							>
 								<div className='flex items-center justify-between'>
-									<span className='flex h-11 w-11 items-center justify-center rounded-xl bg-primary-subtle text-primary'>
+									<span className='flex h-11 w-11 items-center justify-center rounded-md bg-primary-subtle text-primary'>
 										<Icon className='h-5 w-5' />
 									</span>
 									<span className='font-mono text-xs font-medium text-muted'>{item.step}</span>

@@ -6,11 +6,11 @@ import {
 
 export default function ContactPage() {
   return (
-    <LandingShell>
-      <ContactHero />
-      <div className="bg-[var(--color-bg-secondary)]">
-        <ContactSection />
-      </div>
-    </LandingShell>
+		<LandingShell>
+			<ContactHero />
+			<div className='bg-background'>
+				<ContactSection />
+			</div>
+		</LandingShell>
   );
 }

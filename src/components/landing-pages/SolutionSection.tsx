@@ -6,7 +6,7 @@ import { LANDING_FEATURES } from "./landing-data";
 function FeatureImage({ image, label }: { image: string; label: string }) {
   return (
 		<div className='relative mx-auto w-full max-w-lg'>
-			<div className='relative overflow-hidden rounded-2xl border border-default bg-surface shadow-lg'>
+			<div className='relative overflow-hidden rounded-lg border border-default bg-surface shadow-lg'>
 				<div className='relative flex aspect-[4/3] items-center justify-center bg-background p-4'>
 					<Image
 						src={image}

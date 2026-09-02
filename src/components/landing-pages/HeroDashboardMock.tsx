@@ -21,6 +21,7 @@ import {
   Upload,
   Users,
 } from "lucide-react";
+import { LandingBrandLogo } from "./LandingBrandLogo";
 
 /* ── Tiny helper ─────────────────────────────────────────────── */
 function Badge({ children, variant = "default" }: { children: React.ReactNode; variant?: "default" | "green" | "blue" | "amber" }) {
@@ -56,10 +57,7 @@ function Sidebar() {
     <div className="flex w-[160px] shrink-0 flex-col border-r border-default bg-[var(--color-bg-secondary)]">
       {/* Brand */}
       <div className="flex items-center gap-2 border-b border-default px-3 py-2.5">
-        <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary">
-          <Shield className="h-3 w-3 text-primary-foreground" />
-        </div>
-        <span className="text-xs font-semibold text-foreground">Bika-File</span>
+        <LandingBrandLogo />
       </div>
 
       {/* Nav */}
@@ -68,7 +66,7 @@ function Sidebar() {
           <div
             key={item.label}
             className={[
-              "flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] font-medium",
+              "flex items-center gap-2 rounded-sm px-2 py-1.5 text-[11px] font-medium",
               item.active
                 ? "bg-primary-subtle text-primary"
                 : "text-muted hover:text-foreground",
@@ -85,7 +83,7 @@ function Sidebar() {
         {bottom.map((item) => (
           <div
             key={item.label}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] font-medium text-muted"
+            className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-[11px] font-medium text-muted"
           >
             <item.icon className="h-3.5 w-3.5" />
             {item.label}
@@ -123,7 +121,7 @@ function FileRow({ file }: { file: typeof FILES[number] }) {
   const isFolder = file.icon === Folder;
   return (
     <div className="group flex items-center gap-3 border-b border-default px-4 py-2 transition hover:bg-[var(--color-bg-secondary)]">
-      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isFolder ? "bg-amber-50 text-amber-500" : "bg-primary-subtle text-primary"}`}>
+      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-sm ${isFolder ? "bg-amber-50 text-amber-500" : "bg-primary-subtle text-primary"}`}>
         <Icon className="h-3.5 w-3.5" />
       </span>
       <div className="min-w-0 flex-1">
@@ -159,7 +157,7 @@ export function HeroDashboardMock() {
       />
 
       {/* Dashboard frame */}
-      <div className="relative overflow-hidden rounded-xl border border-default bg-surface shadow-xl">
+      <div className="relative overflow-hidden rounded-md border border-default bg-surface shadow-xl">
         {/* Window chrome */}
         <div className="flex items-center gap-1.5 border-b border-default bg-[var(--color-bg-secondary)] px-3 py-2">
           <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
@@ -184,13 +182,13 @@ export function HeroDashboardMock() {
                 <span className="font-medium text-foreground">My Files</span>
               </div>
               <div className="ml-auto flex items-center gap-2">
-                <div className="flex items-center gap-1.5 rounded-md border border-default bg-background px-2.5 py-1">
+                <div className="flex items-center gap-1.5 rounded-sm border border-default bg-background px-2.5 py-1">
                   <Search className="h-3 w-3 text-muted" />
                   <span className="text-[10px] text-muted">Search files…</span>
                 </div>
                 <button
                   type="button"
-                  className="flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-[10px] font-semibold text-primary-foreground"
+                  className="flex items-center gap-1 rounded-sm bg-primary px-2.5 py-1 text-[10px] font-semibold text-primary-foreground"
                 >
                   <Upload className="h-3 w-3" />
                   Upload

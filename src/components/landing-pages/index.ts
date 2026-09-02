@@ -1,6 +1,5 @@
 export { ContactHero } from "./ContactHero";
 export { ContactSection } from "./ContactSection";
-export { CTASection } from "./CTASection";
 export { FAQSection } from "./FAQSection";
 export { FeaturesCta } from "./FeaturesCta";
 export { FeatureShowcaseBlock, FeaturesShowcaseList } from "./FeatureShowcaseBlock";
