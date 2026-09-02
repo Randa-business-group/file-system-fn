@@ -21,16 +21,13 @@ export const metadata: Metadata = {
   icons: "/file-browser-icon.png",
 };
 
-
-
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="bg-background text-foreground antialiased">
         <Providers>
           <AuthGuard>{children}</AuthGuard>

@@ -2,19 +2,24 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { PRICING_PLANS } from "./landing-data";
 
+function formatPrice(price: number): string {
+  return price.toLocaleString("en-RW");
+}
+
 export function PricingSection() {
   return (
-    <section id="pricing" className="scroll-mt-20 bg-background py-20 sm:py-24">
+    <section
+      id="pricing"
+      className="scroll-mt-20 border-default bg-background py-20 sm:py-24"
+    >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
-            Pricing
-          </p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            Find the right plan for your team
+            Simple pricing that grows with your team
           </h2>
           <p className="mt-4 text-base text-secondary">
-            Mock pricing for now — you can update plans and amounts anytime.
+            Start free, upgrade when you&apos;re ready. No hidden fees, no
+            surprise charges.
           </p>
         </div>
 
@@ -39,16 +44,20 @@ export function PricingSection() {
                 <h3 className="text-xl font-semibold text-foreground">
                   {plan.name}
                 </h3>
-                <p className="mt-2 text-sm text-secondary">{plan.description}</p>
+                <p className="mt-2 text-sm text-secondary">
+                  {plan.description}
+                </p>
               </div>
 
               <div className="mt-6 flex items-end gap-1">
                 {plan.price !== null ? (
                   <>
-                    <span className="text-4xl font-semibold tracking-tight text-foreground">
-                      ${plan.price}
+                    <span className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+                      {formatPrice(plan.price)}
                     </span>
-                    <span className="mb-1 text-sm text-muted">{plan.period}</span>
+                    <span className="mb-1 text-sm text-muted">
+                      {plan.currency} / {plan.period}
+                    </span>
                   </>
                 ) : (
                   <span className="text-3xl font-semibold tracking-tight text-foreground">
