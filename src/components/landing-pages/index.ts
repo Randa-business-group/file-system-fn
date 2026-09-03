@@ -12,3 +12,4 @@ export { LandingShell } from "./LandingShell";
 export { PricingSection } from "./PricingSection";
 export { ProblemSection } from "./ProblemSection";
 export { SolutionSection } from "./SolutionSection";
+export { AnimatedSection, SpotlightCard, CountUp } from "./motion";

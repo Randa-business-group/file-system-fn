@@ -86,7 +86,7 @@ export function LandingNavbar() {
 
   return (
 		<header className='sticky top-0 z-50 border-b border-default bg-white'>
-			<div className='mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8'>
+			<div className='mx-auto flex h-12 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8'>
 				<LandingBrandLogo />
 
 				<nav className='hidden flex-1 items-center justify-center gap-8 md:flex'>
@@ -109,7 +109,7 @@ export function LandingNavbar() {
 							>
 								<button
 									type='button'
-									className='flex items-center gap-2 rounded-full border border-default bg-surface py-1 pl-1 pr-3 transition hover:bg-[var(--color-bg-secondary)]'
+									className='flex items-center gap-2 rounded-full border border-default bg-surface py-1 pl-1 pr-3 transition hover:bg-[var(--color-bg-secondary)] hover:scale-105 active:scale-100'
 								>
 									<ProfileAvatar
 										name={user.name}
@@ -149,7 +149,7 @@ export function LandingNavbar() {
 							</Link>
 							<Link
 								href='/register'
-								className='rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground no-underline shadow-sm transition hover:text-primary-foreground hover:bg-primary-hover hover:no-underline'
+								className='shimmer-btn-wrapper rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground no-underline shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary-hover hover:text-primary-foreground hover:shadow-md hover:no-underline active:translate-y-0'
 							>
 								Sign up
 							</Link>
