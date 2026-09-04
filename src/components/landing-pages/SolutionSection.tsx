@@ -90,9 +90,9 @@ function FeatureCard({
 
 export function SolutionSection() {
   return (
-    <section id="features" className="scroll-mt-20">
+    <section id="features" className="scroll-mt-10">
       {/* Section header */}
-      <div className="bg-background pb-4 pt-20 sm:pt-24">
+      <div className="bg-background pb-4 pt-10">
         <div className="mx-auto max-w-2xl px-4 text-center sm:px-6 lg:px-8">
           <AnimatedSection animation="fade-up" delay={100} duration={600}>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">

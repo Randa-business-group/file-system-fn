@@ -52,7 +52,7 @@ export function FAQSection() {
   return (
     <section
       id="faq"
-      className="scroll-mt-20 border-default bg-background py-20 sm:py-24"
+      className="scroll-mt-20 border-default bg-background py-10"
     >
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">

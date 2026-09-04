@@ -360,9 +360,15 @@ export const FOOTER_LINKS = {
     { label: "Sign in", href: "/login" },
     { label: "Create account", href: "/register" },
     { label: "Forgot password", href: "/forgot-password" },
+    { label: "Dashboard", href: "/dashboard" },
   ],
   support: [
     { label: "Contact us", href: "/contact" },
     { label: "Home", href: "/" },
+  ],
+  legal: [
+    { label: "Privacy Policy", href: "/contact" },
+    { label: "Terms of Service", href: "/contact" },
+    { label: "Security", href: "/contact" },
   ],
 } as const;
