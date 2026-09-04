@@ -18,10 +18,14 @@ import { InviteAdminModal } from "@/components/departments/InviteAdminModal";
 import { DepartmentRow } from "@/components/departments/DepartmentRow";
 import { OrgPageHeader } from "@/components/org/OrgPageHeader";
 import {
-  OrgTableHead,
-  OrgTableShell,
-  OrgTableTh,
-} from "@/components/org/OrgTableShell";
+  TableContainer,
+  Table,
+  TableHeader,
+  TableHead,
+  TableBody,
+  TableLoading,
+  TableEmpty,
+} from "@/components/ui/Table";
 import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
@@ -147,46 +151,46 @@ export default function DashboardDepartmentsPage() {
         action={newDepartmentButton}
       />
 
-      <OrgTableShell>
-        <table className="w-full min-w-[640px] text-sm">
-          <OrgTableHead>
-            <OrgTableTh>Name</OrgTableTh>
-            <OrgTableTh>Members</OrgTableTh>
-            <OrgTableTh>Folders</OrgTableTh>
-            <OrgTableTh>Created</OrgTableTh>
-            <OrgTableTh align="right">Actions</OrgTableTh>
-          </OrgTableHead>
-          <tbody>
-            {isDepartmentsLoading
-              ? [...Array(4)].map((_, index) => (
-                  <tr key={index} className="border-t border-default">
-                    <td colSpan={5} className="px-5 py-4">
-                      <LoadingSkeleton height={40} rounded="0.5rem" />
-                    </td>
-                  </tr>
-                ))
-              : departments.map((department) => (
-                  <DepartmentRow
-                    key={department.id}
-                    department={department}
-                    onEdit={() => {
-                      setSelectedDepartment(department);
-                      setIsEditModalOpen(true);
-                    }}
-                    onInviteAdmin={() => {
-                      setSelectedDepartment(department);
-                      setIsInviteModalOpen(true);
-                    }}
-                    onDelete={() => {
-                      setSelectedDepartment(department);
-                      setIsDeleteModalOpen(true);
-                    }}
-                    isBusy={isBusy}
-                  />
-                ))}
-          </tbody>
-        </table>
-      </OrgTableShell>
+      <TableContainer>
+        <Table className="min-w-[640px]">
+          <TableHeader>
+            <tr>
+              <TableHead>Name</TableHead>
+              <TableHead>Members</TableHead>
+              <TableHead>Folders</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead align="right">Actions</TableHead>
+            </tr>
+          </TableHeader>
+          <TableBody>
+            {isDepartmentsLoading ? (
+              <TableLoading colSpan={5} rows={4} />
+            ) : departments.length === 0 ? (
+              <TableEmpty colSpan={5} message="No departments found." />
+            ) : (
+              departments.map((department) => (
+                <DepartmentRow
+                  key={department.id}
+                  department={department}
+                  onEdit={() => {
+                    setSelectedDepartment(department);
+                    setIsEditModalOpen(true);
+                  }}
+                  onInviteAdmin={() => {
+                    setSelectedDepartment(department);
+                    setIsInviteModalOpen(true);
+                  }}
+                  onDelete={() => {
+                    setSelectedDepartment(department);
+                    setIsDeleteModalOpen(true);
+                  }}
+                  isBusy={isBusy}
+                />
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
       <AddDepartmentModal
         key="add-department-modal"

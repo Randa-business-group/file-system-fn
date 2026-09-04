@@ -8,6 +8,7 @@ interface UnderlineSelectFieldProps {
   label: string;
   value: OrganizationType;
   onChange: (value: OrganizationType) => void;
+  onBlur?: () => void;
   error?: string;
 }
 
@@ -16,6 +17,7 @@ export function UnderlineSelectField({
   label,
   value,
   onChange,
+  onBlur,
   error,
 }: UnderlineSelectFieldProps) {
   return (
@@ -38,6 +40,9 @@ export function UnderlineSelectField({
           id={id}
           value={value}
           onChange={(event) => onChange(event.target.value as OrganizationType)}
+          onBlur={onBlur}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? `${id}-error` : undefined}
           className="w-full appearance-none bg-transparent py-1.5 pb-2 pr-7 text-sm text-foreground outline-none transition-all duration-200"
           style={{
             borderBottom: `1.5px solid ${
@@ -69,7 +74,8 @@ export function UnderlineSelectField({
 
       {error ? (
         <p
-          className="mt-1 text-[10px] tracking-wide"
+          id={`${id}-error`}
+          className="mt-1 text-[10px] tracking-wide animate-[fadeUp_0.15s_ease_both]"
           style={{ color: "var(--color-error, #ef4444)" }}
         >
           {error}

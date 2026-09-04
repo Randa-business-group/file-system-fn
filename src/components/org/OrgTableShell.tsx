@@ -1,27 +1,23 @@
 "use client";
-
+ 
 import type { ReactNode } from "react";
+import { TableContainer, TableHeader, TableHead } from "@/components/ui/Table";
 
 interface OrgTableShellProps {
   children: ReactNode;
+  className?: string;
 }
 
-export function OrgTableShell({ children }: OrgTableShellProps) {
+export function OrgTableShell({ children, className = "" }: OrgTableShellProps) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-default bg-surface shadow-sm">
-      <div className="overflow-x-auto">{children}</div>
-    </div>
+    <TableContainer className={`rounded-2xl ${className}`}>
+      {children}
+    </TableContainer>
   );
 }
 
 export function OrgTableHead({ children }: { children: ReactNode }) {
-  return (
-    <thead>
-      <tr className="border-b border-default bg-[var(--color-bg-secondary)] text-left text-[11px] font-semibold uppercase tracking-wider text-muted">
-        {children}
-      </tr>
-    </thead>
-  );
+  return <TableHeader>{children}</TableHeader>;
 }
 
 export function OrgTableTh({
@@ -31,14 +27,6 @@ export function OrgTableTh({
   children: ReactNode;
   align?: "left" | "right";
 }) {
-  return (
-    <th
-      className={[
-        "px-5 py-3.5 font-semibold",
-        align === "right" ? "text-right" : "text-left",
-      ].join(" ")}
-    >
-      {children}
-    </th>
-  );
+  return <TableHead align={align}>{children}</TableHead>;
 }
+

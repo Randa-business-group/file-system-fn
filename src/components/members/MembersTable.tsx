@@ -6,6 +6,16 @@ import { toast } from "sonner";
 import { RoleBadge } from "@/components/ui/Badge";
 import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
+import {
+  TableContainer,
+  Table,
+  TableHeader,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+  TableEmpty,
+} from "@/components/ui/Table";
 import { useCancelInvitation } from "@/lib/hooks/useInvitations";
 import { useAuth } from "@/lib/auth-context";
 import type { Invitation } from "@/types/invitation";
@@ -115,52 +125,48 @@ export function MembersTable({
 
   return (
     <>
-      <div className="overflow-hidden rounded-3xl border border-default bg-surface shadow-sm">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-[var(--color-bg-secondary)] text-secondary">
-            <tr>
-              <th className="px-5 py-4 font-medium">Avatar</th>
-              <th className="px-5 py-4 font-medium">Name</th>
-              <th className="px-5 py-4 font-medium">Email</th>
+      <TableContainer>
+        <Table>
+          <TableHeader>
+            <TableRow hoverable={false}>
+              <TableHead>Avatar</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Email</TableHead>
               {showBranchColumn ? (
-                <th className="px-5 py-4 font-medium">Branch</th>
+                <TableHead>Branch</TableHead>
               ) : null}
-              <th className="px-5 py-4 font-medium">Department</th>
-              <th className="px-5 py-4 font-medium">Role</th>
-              <th className="px-5 py-4 font-medium">Date Joined</th>
-              <th className="px-5 py-4 font-medium text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+              <TableHead>Department</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Date Joined</TableHead>
+              <TableHead align="right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {filteredMembers.length === 0 ? (
-              <tr className="border-t border-default">
-                <td colSpan={colSpan} className="px-5 py-8 text-center text-sm text-secondary">
-                  No members have accepted an invitation yet.
-                </td>
-              </tr>
+              <TableEmpty colSpan={colSpan} message="No members have accepted an invitation yet." />
             ) : (
               filteredMembers.map((member) => (
-                <tr key={member.id} className="border-t border-default">
-                  <td className="px-5 py-4">
+                <TableRow key={member.id}>
+                  <TableCell>
                     <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary-subtle text-sm font-semibold text-primary">
                       {getInitials(member.name)}
                     </div>
-                  </td>
-                  <td className="px-5 py-4 text-foreground">{member.name}</td>
-                  <td className="px-5 py-4 text-secondary">{member.email}</td>
+                  </TableCell>
+                  <TableCell className="text-foreground">{member.name}</TableCell>
+                  <TableCell className="text-secondary">{member.email}</TableCell>
                   {showBranchColumn ? (
-                    <td className="px-5 py-4 text-secondary">
+                    <TableCell className="text-secondary">
                       {member.branch?.name ?? "—"}
-                    </td>
+                    </TableCell>
                   ) : null}
-                  <td className="px-5 py-4 text-secondary">
+                  <TableCell className="text-secondary">
                     {member.department?.name ?? "—"}
-                  </td>
-                  <td className="px-5 py-4">
+                  </TableCell>
+                  <TableCell>
                     <RoleBadge role={member.role} />
-                  </td>
-                  <td className="px-5 py-4 text-secondary">{member.createdAt}</td>
-                  <td className="px-5 py-4 text-right">
+                  </TableCell>
+                  <TableCell className="text-secondary">{member.createdAt}</TableCell>
+                  <TableCell align="right">
                     <div className="flex flex-wrap justify-end gap-2">
                       {canManageMembers(currentUserRole) ? (
                         <button
@@ -173,13 +179,13 @@ export function MembersTable({
                         </button>
                       ) : null}
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </TableContainer>
 
       <div className="overflow-hidden rounded-3xl border border-default bg-surface shadow-sm">
         <div className="border-b border-default px-5 py-4">
@@ -204,26 +210,26 @@ export function MembersTable({
             ))}
           </div>
         ) : invitations.length > 0 ? (
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[var(--color-bg-secondary)] text-secondary">
-              <tr>
-                <th className="px-5 py-4 font-medium">Email</th>
-                <th className="px-5 py-4 font-medium">Role</th>
-                <th className="px-5 py-4 font-medium">Date Sent</th>
-                <th className="px-5 py-4 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow hoverable={false}>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Date Sent</TableHead>
+                <TableHead align="right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {invitations.map((invitation) => (
-                <tr key={invitation.id} className="border-t border-default">
-                  <td className="px-5 py-4 text-foreground">{invitation.email}</td>
-                  <td className="px-5 py-4">
+                <TableRow key={invitation.id}>
+                  <TableCell className="text-foreground">{invitation.email}</TableCell>
+                  <TableCell>
                     <RoleBadge role={invitation.role} />
-                  </td>
-                  <td className="px-5 py-4 text-secondary">
+                  </TableCell>
+                  <TableCell className="text-secondary">
                     {new Date(invitation.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-5 py-4 text-right">
+                  </TableCell>
+                  <TableCell align="right">
                     <button
                       type="button"
                       onClick={() => void handleCancelInvitation(invitation.id)}
@@ -232,11 +238,11 @@ export function MembersTable({
                     >
                       {cancelInvitation.isLoading ? "Cancelling..." : "Cancel"}
                     </button>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         ) : (
           <div className="px-5 py-8 text-sm text-secondary">No pending invitations.</div>
         )}

@@ -6,6 +6,7 @@ import {
   Eye,
   FolderOpen,
   FolderPlus,
+  FolderUp,
   Lock,
   Plus,
   Share2,
@@ -263,6 +264,19 @@ export function FolderWorkspace({
     openUpload(match?.id ?? currentFolderDbId);
   };
 
+  const handleUploadFolder = (folderSlug?: string | null) => {
+    if (!folderSlug) {
+      openUpload(currentFolderDbId, "folder");
+      return;
+    }
+
+    const match =
+      folders.find((folder) => folder.slug === folderSlug) ??
+      (folderContents?.children ?? []).find((folder) => folder.slug === folderSlug);
+
+    openUpload(match?.id ?? currentFolderDbId, "folder");
+  };
+
   const handleNavigateToFolder = (folderSlug: string) => {
     updateFolderSlug(folderSlug === "root" ? null : folderSlug);
   };
@@ -502,6 +516,14 @@ export function FolderWorkspace({
             >
               <UploadIcon className="h-4 w-4" />
               Upload file
+            </button>
+            <button
+              type="button"
+              onClick={() => handleUploadFolder()}
+              className="inline-flex items-center justify-center gap-2 rounded border border-default bg-surface px-4 py-2.5 text-sm font-semibold text-foreground transition hover:bg-[var(--color-bg-secondary)]"
+            >
+              <FolderUp className="h-4 w-4" />
+              Upload folder
             </button>
             <button
               type="button"

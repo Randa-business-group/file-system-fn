@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Search, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { useGetCategories } from "@/lib/hooks/useCategories";
 import { useGetDocuments } from "@/lib/hooks/useDocuments";
-import { DashboardDocumentRow } from "@/components/documents/DashboardDocumentRow";
+import { DocumentsTable } from "@/components/documents/DocumentsTable";
 import { DocumentDetails } from "@/components/documents/DocumentDetails";
 import { DocumentPreview } from "@/components/ui/DocumentPreview";
 import { SortBar } from "@/components/ui/SortBar";
@@ -179,46 +179,18 @@ export default function DashboardDocumentsPage() {
 
         <SortBar sortBy={sortBy} onChange={setSortBy} />
 
-        <div className="divide-y divide-default">
-          {isLoading && documents.length === 0 ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {[...Array(6)].map((_, index) => (
-                <div
-                  key={index}
-                  className="h-40 animate-pulse rounded-3xl bg-[var(--color-bg-secondary)]"
-                />
-              ))}
-            </div>
-          ) : documents.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-default bg-[var(--color-bg-secondary)] p-12 text-center text-sm text-secondary">
-              <h2 className="text-lg font-semibold text-foreground">No documents found</h2>
-              <p className="mt-2">
-                {filters.search || filters.categoryId
-                  ? "Try adjusting your filters."
-                  : "Upload documents to see them here."}
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto rounded border border-default bg-surface">
-              <div className="grid gap-4 border-b border-default px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-secondary grid-cols-[minmax(320px,1.8fr)_160px_160px_minmax(140px,1fr)_132px]">
-                <span>Name</span>
-                <span>Owner</span>
-                <span>Last changes</span>
-                <span>Category</span>
-                <span className="text-right">Actions</span>
-              </div>
-              {sortedDocuments.map((document) => (
-                <DashboardDocumentRow
-                  key={document.id}
-                  document={document}
-                  onDetails={handleOpenDetails}
-                  onOpen={handleOpenDocument}
-                  onDownload={handleDownloadDocument}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        <DocumentsTable
+          documents={sortedDocuments}
+          isLoading={isLoading}
+          onOpen={handleOpenDocument}
+          onDetails={handleOpenDetails}
+          onDownload={handleDownloadDocument}
+          emptyMessage={
+            filters.search || filters.categoryId
+              ? "No documents matched your filters."
+              : "Upload documents to see them here."
+          }
+        />
 
         {pagination && pagination.totalPages > 1 && (
           <div className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between">

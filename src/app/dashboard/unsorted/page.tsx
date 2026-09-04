@@ -19,10 +19,15 @@ import { DocumentDetails } from "@/components/documents/DocumentDetails";
 import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
 import { OrgPageHeader } from "@/components/org/OrgPageHeader";
 import {
-  OrgTableHead,
-  OrgTableShell,
-  OrgTableTh,
-} from "@/components/org/OrgTableShell";
+  TableContainer,
+  Table,
+  TableHeader,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+  TableLoading,
+} from "@/components/ui/Table";
 import { documentApi } from "@/api/document.api";
 import { useGetInbox, useDeleteDocument } from "@/lib/hooks/useDocuments";
 import {
@@ -362,29 +367,25 @@ export default function DashboardUnsortedPage() {
               <LoadingSkeleton key={i} height={72} rounded="0.75rem" />
             ))}
           </div>
-          <OrgTableShell>
-            <table className="w-full min-w-[720px]">
-              <OrgTableHead>
-                <OrgTableTh>
-                  <LoadingSkeleton height={14} width={40} />
-                </OrgTableTh>
-                <OrgTableTh>File</OrgTableTh>
-                <OrgTableTh>Status</OrgTableTh>
-                <OrgTableTh>Category</OrgTableTh>
-                <OrgTableTh>Updated</OrgTableTh>
-                <OrgTableTh align="right">Actions</OrgTableTh>
-              </OrgTableHead>
-              <tbody>
-                {[...Array(6)].map((_, index) => (
-                  <tr key={index} className="border-b border-default">
-                    <td colSpan={6} className="px-5 py-4">
-                      <LoadingSkeleton height={20} rounded="0.375rem" />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </OrgTableShell>
+          <TableContainer>
+            <Table className="min-w-[720px]">
+              <TableHeader>
+                <tr>
+                  <TableHead>
+                    <LoadingSkeleton height={14} width={40} />
+                  </TableHead>
+                  <TableHead>File</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Updated</TableHead>
+                  <TableHead align="right">Actions</TableHead>
+                </tr>
+              </TableHeader>
+              <TableBody>
+                <TableLoading colSpan={6} rows={6} />
+              </TableBody>
+            </Table>
+          </TableContainer>
         </div>
       ) : documents.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-default bg-[var(--color-bg-secondary)]/50 py-16">
@@ -414,26 +415,28 @@ export default function DashboardUnsortedPage() {
             </div>
           )}
 
-          <OrgTableShell>
-            <table className="w-full min-w-[720px]">
-              <OrgTableHead>
-                <OrgTableTh>
-                  <input
-                    ref={selectAllCheckboxRef}
-                    type="checkbox"
-                    checked={allSelected}
-                    onChange={handleToggleAll}
-                    className="rounded border-default"
-                    aria-label="Select all"
-                  />
-                </OrgTableTh>
-                <OrgTableTh>Document</OrgTableTh>
-                <OrgTableTh>Status</OrgTableTh>
-                <OrgTableTh>Category</OrgTableTh>
-                <OrgTableTh>Updated</OrgTableTh>
-                <OrgTableTh align="right">Actions</OrgTableTh>
-              </OrgTableHead>
-              <tbody>
+          <TableContainer>
+            <Table className="min-w-[720px]">
+              <TableHeader>
+                <tr>
+                  <TableHead>
+                    <input
+                      ref={selectAllCheckboxRef}
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={handleToggleAll}
+                      className="rounded border-default"
+                      aria-label="Select all"
+                    />
+                  </TableHead>
+                  <TableHead>Document</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Updated</TableHead>
+                  <TableHead align="right">Actions</TableHead>
+                </tr>
+              </TableHeader>
+              <TableBody>
                 {sortedDocuments.map((document) => {
                   const isSelected = selectedIds.has(document.id);
                   const formattedDate = new Date(
@@ -445,11 +448,8 @@ export default function DashboardUnsortedPage() {
                   });
 
                   return (
-                    <tr
-                      key={document.id}
-                      className="border-b border-default text-sm text-foreground transition last:border-b-0 hover:bg-[var(--color-bg-secondary)]/60"
-                    >
-                      <td className="px-5 py-4">
+                    <TableRow key={document.id} selected={isSelected}>
+                      <TableCell>
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -457,8 +457,8 @@ export default function DashboardUnsortedPage() {
                           className="rounded border-default"
                           aria-label={`Select ${document.fileName}`}
                         />
-                      </td>
-                      <td className="max-w-xs px-5 py-4">
+                      </TableCell>
+                      <TableCell className="max-w-xs">
                         <button
                           type="button"
                           onClick={() => handleOpenDetails(document)}
@@ -479,17 +479,17 @@ export default function DashboardUnsortedPage() {
                             </p>
                           )
                         )}
-                      </td>
-                      <td className="px-5 py-4">
+                      </TableCell>
+                      <TableCell>
                         <StatusBadge status={document.processingStatus} />
-                      </td>
-                      <td className="px-5 py-4 text-secondary">
+                      </TableCell>
+                      <TableCell className="text-secondary">
                         {document.category?.name ?? "—"}
-                      </td>
-                      <td className="px-5 py-4 text-secondary tabular-nums">
+                      </TableCell>
+                      <TableCell className="text-secondary tabular-nums">
                         {formattedDate}
-                      </td>
-                      <td className="px-5 py-4">
+                      </TableCell>
+                      <TableCell align="right">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             type="button"
@@ -511,13 +511,13 @@ export default function DashboardUnsortedPage() {
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
-          </OrgTableShell>
+              </TableBody>
+            </Table>
+          </TableContainer>
 
           <p className="text-center text-xs text-secondary">
             Need everything filed?{" "}

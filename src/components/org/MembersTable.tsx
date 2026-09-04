@@ -1,7 +1,17 @@
 "use client";
 
 import { RoleBadge } from "@/components/ui/Badge";
-import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
+import {
+  TableContainer,
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+  TableLoading,
+  TableEmpty,
+} from "@/components/ui/Table";
 import { Role } from "@/types/enum";
 import type { Member } from "@/types/member";
 
@@ -30,57 +40,47 @@ export function MembersTable({
 }: MembersTableProps) {
   const cellPad = compact ? "px-4 py-2" : "px-5 py-3";
   const headPad = compact ? "px-4 py-2.5" : "px-5 py-3";
-  if (isLoading) {
-    return (
-      <div className="space-y-2 p-3">
-        {[...Array(3)].map((_, index) => (
-          <LoadingSkeleton key={index} height={40} rounded="0.5rem" />
-        ))}
-      </div>
-    );
-  }
 
-  if (members.length === 0) {
-    return (
-      <div className="rounded-xl border border-dashed border-default bg-[var(--color-bg-secondary)]/40 px-4 py-8 text-center">
-        <p className="text-sm text-secondary">{emptyMessage}</p>
-      </div>
-    );
+  const tableContent = (
+    <Table className="w-full text-left text-sm">
+      <TableHeader>
+        <TableRow hoverable={false}>
+          <TableHead className={headPad}>Name</TableHead>
+          <TableHead className={headPad}>Email</TableHead>
+          <TableHead className={headPad} align="right">
+            Role
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {isLoading ? (
+          <TableLoading colSpan={3} rows={3} />
+        ) : members.length === 0 ? (
+          <TableEmpty colSpan={3} message={emptyMessage} />
+        ) : (
+          members.map((member) => (
+            <TableRow key={member.id}>
+              <TableCell className={cellPad}>
+                <p className="font-medium text-foreground">{member.name}</p>
+              </TableCell>
+              <TableCell className={`${cellPad} text-secondary`}>{member.email}</TableCell>
+              <TableCell className={`${cellPad} text-right`} align="right">
+                <RoleBadge role={normalizeRole(member.role)} />
+              </TableCell>
+            </TableRow>
+          ))
+        )}
+      </TableBody>
+    </Table>
+  );
+
+  if (embedded) {
+    return <div className="overflow-x-auto">{tableContent}</div>;
   }
 
   return (
-    <div
-      className={
-        embedded
-          ? "overflow-hidden"
-          : "overflow-hidden rounded-xl border border-default bg-surface"
-      }
-    >
-      <table className="w-full text-left text-sm">
-        <thead>
-          <tr className="border-b border-default bg-[var(--color-bg-secondary)] text-[11px] font-semibold uppercase tracking-wider text-muted">
-            <th className={headPad}>Name</th>
-            <th className={headPad}>Email</th>
-            <th className={`${headPad} text-right`}>Role</th>
-          </tr>
-        </thead>
-        <tbody>
-          {members.map((member) => (
-            <tr
-              key={member.id}
-              className="border-t border-default transition-colors hover:bg-[var(--color-bg-secondary)]/50"
-            >
-              <td className={cellPad}>
-                <p className="font-medium text-foreground">{member.name}</p>
-              </td>
-              <td className={`${cellPad} text-secondary`}>{member.email}</td>
-              <td className={`${cellPad} text-right`}>
-                <RoleBadge role={normalizeRole(member.role)} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <TableContainer className="rounded-xl">
+      {tableContent}
+    </TableContainer>
   );
 }

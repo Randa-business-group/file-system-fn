@@ -18,10 +18,14 @@ import { EditBranchModal } from "@/components/branches/EditBranchModal";
 import { InviteBranchManagerModal } from "@/components/branches/InviteBranchManagerModal";
 import { OrgPageHeader } from "@/components/org/OrgPageHeader";
 import {
-  OrgTableHead,
-  OrgTableShell,
-  OrgTableTh,
-} from "@/components/org/OrgTableShell";
+  TableContainer,
+  Table,
+  TableHeader,
+  TableHead,
+  TableBody,
+  TableLoading,
+  TableEmpty,
+} from "@/components/ui/Table";
 import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
@@ -131,47 +135,47 @@ export default function DashboardBranchesPage() {
         action={newBranchButton}
       />
 
-      <OrgTableShell>
-        <table className="w-full min-w-[720px] text-sm">
-          <OrgTableHead>
-            <OrgTableTh>Name</OrgTableTh>
-            <OrgTableTh>Departments</OrgTableTh>
-            <OrgTableTh>Members</OrgTableTh>
-            <OrgTableTh>Manager</OrgTableTh>
-            <OrgTableTh>Created</OrgTableTh>
-            <OrgTableTh align="right">Actions</OrgTableTh>
-          </OrgTableHead>
-          <tbody>
-            {isBranchesLoading
-              ? [...Array(4)].map((_, index) => (
-                  <tr key={index} className="border-t border-default">
-                    <td colSpan={6} className="px-5 py-4">
-                      <LoadingSkeleton height={40} rounded="0.5rem" />
-                    </td>
-                  </tr>
-                ))
-              : branches.map((branch) => (
-                  <BranchRow
-                    key={branch.id}
-                    branch={branch}
-                    onEdit={() => {
-                      setSelectedBranch(branch);
-                      setIsEditOpen(true);
-                    }}
-                    onInviteManager={() => {
-                      setSelectedBranch(branch);
-                      setIsInviteOpen(true);
-                    }}
-                    onDelete={() => {
-                      setSelectedBranch(branch);
-                      setIsDeleteOpen(true);
-                    }}
-                    isBusy={isBusy}
-                  />
-                ))}
-          </tbody>
-        </table>
-      </OrgTableShell>
+      <TableContainer>
+        <Table className="min-w-[720px]">
+          <TableHeader>
+            <tr>
+              <TableHead>Name</TableHead>
+              <TableHead>Departments</TableHead>
+              <TableHead>Members</TableHead>
+              <TableHead>Manager</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead align="right">Actions</TableHead>
+            </tr>
+          </TableHeader>
+          <TableBody>
+            {isBranchesLoading ? (
+              <TableLoading colSpan={6} rows={4} />
+            ) : branches.length === 0 ? (
+              <TableEmpty colSpan={6} message="No branches found." />
+            ) : (
+              branches.map((branch) => (
+                <BranchRow
+                  key={branch.id}
+                  branch={branch}
+                  onEdit={() => {
+                    setSelectedBranch(branch);
+                    setIsEditOpen(true);
+                  }}
+                  onInviteManager={() => {
+                    setSelectedBranch(branch);
+                    setIsInviteOpen(true);
+                  }}
+                  onDelete={() => {
+                    setSelectedBranch(branch);
+                    setIsDeleteOpen(true);
+                  }}
+                  isBusy={isBusy}
+                />
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
       <CreateBranchModal
         isOpen={isCreateOpen}

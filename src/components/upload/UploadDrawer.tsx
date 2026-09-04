@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 import { DropZone } from "./DropZone";
 import { ProcessingState } from "./ProcessingState";
 import { ConfirmDocumentForm } from "./ConfirmDocumentForm";
 import { BulkUploadDrawer } from "./BulkUploadDrawer";
+import { FolderUploadDrawer } from "./FolderUploadDrawer";
 import { ModeSelector } from "./ModeSelector";
 import {
   useConfirmDocument,
@@ -24,7 +25,7 @@ import type {
 } from "@/types/schema/document.schema";
 
 type UploadState = "IDLE" | "SELECTING_MODE" | "PROCESSING" | "CONFIRM" | "SUCCESS";
-type UploadMode = "single" | "multiple";
+type UploadMode = "single" | "multiple" | "folder";
 
 interface UploadDrawerProps {
   isOpen: boolean;
@@ -45,7 +46,8 @@ function emptyManualDefaults(fileName: string): ProcessDocumentResult {
 }
 
 export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: UploadDrawerProps) {
-  const [mode, setMode] = useState<UploadMode>("single");
+  const { uploadFolderId, uploadInitialTab } = useDashboard();
+  const [mode, setMode] = useState<UploadMode>(uploadInitialTab ?? "single");
   const [state, setState] = useState<UploadState>("IDLE");
   const [processingMode, setProcessingMode] = useState<UploadProcessingMode>("ai");
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
@@ -53,10 +55,17 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
   const [extractedText, setExtractedText] = useState("");
   const [aiResult, setAiResult] = useState<ProcessDocumentResult | null>(null);
 
+  const prevIsOpenRef = useRef(isOpen);
+  useEffect(() => {
+    if (isOpen && !prevIsOpenRef.current) {
+      setMode(uploadInitialTab ?? "single");
+    }
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, uploadInitialTab]);
+
   const processDocument = useProcessDocument();
   const createDocument = useCreateDocument();
   const confirmDocument = useConfirmDocument();
-  const { uploadFolderId } = useDashboard();
   const effectiveFolderId = propFolderId ?? uploadFolderId;
 
   const resetUploadState = useCallback(() => {
@@ -235,7 +244,11 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
         <div className="sticky top-0 flex items-center justify-between border-b border-default bg-surface px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-foreground">
-              {mode === "multiple" ? "Bulk Upload Files" : "Upload Document"}
+              {mode === "folder"
+                ? "Upload Folder"
+                : mode === "multiple"
+                ? "Bulk Upload Files"
+                : "Upload Document"}
             </h2>
             <div className="mt-2 flex items-center gap-2 rounded-2xl bg-[var(--color-bg-secondary)] p-1">
               <button
@@ -260,6 +273,17 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
               >
                 Multiple Files
               </button>
+              <button
+                type="button"
+                onClick={() => handleModeChange("folder")}
+                className={`rounded px-3 py-1 text-sm font-semibold transition ${
+                  mode === "folder"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-secondary hover:bg-[var(--color-bg-tertiary)]"
+                }`}
+              >
+                Upload Folder
+              </button>
             </div>
           </div>
           <button
@@ -272,6 +296,17 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
         </div>
 
         <div className="space-y-6 p-6">
+          {mode === "folder" ? (
+            <FolderUploadDrawer
+              embedded
+              parentFolderId={effectiveFolderId}
+              onClose={() => {
+                handleModeChange("single");
+                onClose();
+              }}
+            />
+          ) : null}
+
           {mode === "multiple" ? (
             <BulkUploadDrawer
               embedded

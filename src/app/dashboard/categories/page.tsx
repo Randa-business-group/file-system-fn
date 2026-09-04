@@ -8,10 +8,14 @@ import { AddCategoryModal } from "@/components/categories/AddCategoryModal";
 import { CategoryCard } from "@/components/categories/CategoryCard";
 import { OrgPageHeader } from "@/components/org/OrgPageHeader";
 import {
-  OrgTableHead,
-  OrgTableShell,
-  OrgTableTh,
-} from "@/components/org/OrgTableShell";
+  TableContainer,
+  Table,
+  TableHeader,
+  TableHead,
+  TableBody,
+  TableLoading,
+  TableEmpty,
+} from "@/components/ui/Table";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { useAuth } from "@/lib/auth-context";
@@ -139,25 +143,21 @@ export default function DashboardCategoriesPage() {
       />
 
       {isCategoriesLoading ? (
-        <OrgTableShell>
-          <table className="w-full min-w-[640px] text-sm">
-            <OrgTableHead>
-              <OrgTableTh>Category</OrgTableTh>
-              <OrgTableTh>Documents</OrgTableTh>
-              <OrgTableTh>Created</OrgTableTh>
-              <OrgTableTh align="right">Actions</OrgTableTh>
-            </OrgTableHead>
-            <tbody>
-              {[...Array(5)].map((_, index) => (
-                <tr key={index} className="border-t border-default">
-                  <td colSpan={4} className="px-5 py-4">
-                    <LoadingSkeleton height={40} rounded="0.5rem" />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </OrgTableShell>
+        <TableContainer>
+          <Table className="min-w-[640px]">
+            <TableHeader>
+              <tr>
+                <TableHead>Category</TableHead>
+                <TableHead>Documents</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead align="right">Actions</TableHead>
+              </tr>
+            </TableHeader>
+            <TableBody>
+              <TableLoading colSpan={4} rows={5} />
+            </TableBody>
+          </Table>
+        </TableContainer>
       ) : categories.length > 0 ? (
         <>
           <p className="text-sm text-secondary">
@@ -169,15 +169,17 @@ export default function DashboardCategoriesPage() {
               : null}
           </p>
 
-          <OrgTableShell>
-            <table className="w-full min-w-[640px] text-sm">
-              <OrgTableHead>
-                <OrgTableTh>Category</OrgTableTh>
-                <OrgTableTh>Documents</OrgTableTh>
-                <OrgTableTh>Created</OrgTableTh>
-                <OrgTableTh align="right">Actions</OrgTableTh>
-              </OrgTableHead>
-              <tbody>
+          <TableContainer>
+            <Table className="min-w-[640px]">
+              <TableHeader>
+                <tr>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Documents</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead align="right">Actions</TableHead>
+                </tr>
+              </TableHeader>
+              <TableBody>
                 {categories.map((category) => (
                   <CategoryCard
                     key={category.id}
@@ -186,9 +188,9 @@ export default function DashboardCategoriesPage() {
                     isDeleting={isDeletingCategory}
                   />
                 ))}
-              </tbody>
-            </table>
-          </OrgTableShell>
+              </TableBody>
+            </Table>
+          </TableContainer>
 
           {totalPages > 1 && (
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

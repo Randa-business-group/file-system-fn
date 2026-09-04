@@ -16,6 +16,7 @@ interface RegisterFormPanelProps {
     key: K,
     value: RegisterFormValues[K],
   ) => void;
+  onBlurField?: (key: keyof RegisterFormValues) => void;
   onNextStep: () => void;
   onPreviousStep: () => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
@@ -28,6 +29,7 @@ export function RegisterFormPanel({
   isSubmitting,
   isValid,
   onUpdateValue,
+  onBlurField,
   onNextStep,
   onPreviousStep,
   onSubmit,
@@ -84,12 +86,14 @@ export function RegisterFormPanel({
                 values={values}
                 errors={errors}
                 onUpdateValue={onUpdateValue}
+                onBlurField={onBlurField}
               />
             ) : (
               <RegisterAdminStep
                 values={values}
                 errors={errors}
                 onUpdateValue={onUpdateValue}
+                onBlurField={onBlurField}
               />
             )}
           </div>
@@ -102,7 +106,7 @@ export function RegisterFormPanel({
               <button
                 type="button"
                 onClick={onNextStep}
-                className="flex w-full items-center justify-center gap-2 rounded-[3px] bg-primary py-3.5 text-[11px] font-bold uppercase tracking-[0.14em] text-primary-foreground transition-all duration-200 hover:-translate-y-px hover:brightness-105 hover:shadow-lg"
+                className="flex w-full items-center justify-center gap-2 rounded-[3px] bg-primary py-3.5 text-[11px] font-bold uppercase tracking-[0.14em] text-primary-foreground transition-all duration-200 hover:-translate-y-px hover:brightness-105 hover:shadow-lg cursor-pointer"
               >
                 Continue
               </button>
@@ -111,20 +115,22 @@ export function RegisterFormPanel({
                 <button
                   type="button"
                   onClick={onPreviousStep}
-                  className="flex items-center justify-center gap-2 rounded-[3px] border border-[var(--color-border)] py-3.5 text-[11px] font-bold uppercase tracking-[0.14em] text-secondary transition-all duration-200 hover:border-[var(--color-primary)] hover:text-primary"
+                  className="flex items-center justify-center gap-2 rounded-[3px] border border-[var(--color-border)] py-3.5 text-[11px] font-bold uppercase tracking-[0.14em] text-secondary transition-all duration-200 hover:border-[var(--color-primary)] hover:text-primary cursor-pointer"
                 >
                   Back
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !isValid}
+                  disabled={isSubmitting}
                   className={[
                     "flex items-center justify-center gap-2 rounded-[3px] py-3.5",
                     "text-[11px] font-bold uppercase tracking-[0.14em]",
                     "transition-all duration-200",
-                    isValid && !isSubmitting
-                      ? "bg-primary text-primary-foreground hover:-translate-y-px hover:brightness-105 hover:shadow-lg"
-                      : "bg-primary/20 text-gray-400 cursor-not-allowed",
+                    isSubmitting
+                      ? "bg-primary/40 text-primary-foreground/70 cursor-wait"
+                      : isValid
+                      ? "bg-primary text-primary-foreground hover:-translate-y-px hover:brightness-105 hover:shadow-lg cursor-pointer"
+                      : "bg-primary/80 text-primary-foreground hover:bg-primary cursor-pointer",
                   ].join(" ")}
                 >
                   {isSubmitting ? "Creating..." : "Create"}

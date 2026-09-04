@@ -4,10 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  ChevronLeft,
-  ChevronRight,
   Download,
-  Maximize2,
   SearchX,
   X,
   ZoomIn,
@@ -16,6 +13,11 @@ import {
 import { renderAsync } from "docx-preview";
 import * as XLSX from "xlsx";
 import { getDocumentFileMeta } from "@/lib/upload-file-types";
+import {
+  PdfViewer,
+  getCloudinaryPdfPageUrl,
+  isCloudinaryPdf,
+} from "./PdfViewer";
 
 interface DocumentPreviewProps {
   isOpen: boolean;
@@ -170,7 +172,41 @@ export function DocumentPreview({
     };
   }, [isOpen, onClose]);
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
+    // If it's a Cloudinary PDF, check if direct download is blocked by ACL (401)
+    if (previewMeta.fileType === "pdf" && isCloudinaryPdf(fileUrl)) {
+      try {
+        const headRes = await fetch(fileUrl, { method: "HEAD" });
+        if (headRes.ok) {
+          const link = window.document.createElement("a");
+          link.href = fileUrl;
+          link.download = fileName;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.click();
+          return;
+        }
+      } catch {
+        // Fallback below
+      }
+
+      // Download rendered page if direct PDF delivery is restricted on Cloudinary
+      try {
+        const pageDownloadUrl = getCloudinaryPdfPageUrl(fileUrl, 1, 2400);
+        const res = await fetch(pageDownloadUrl);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const link = window.document.createElement("a");
+        link.href = blobUrl;
+        link.download = `${fileName.replace(/\.pdf$/i, "")}.png`;
+        link.click();
+        URL.revokeObjectURL(blobUrl);
+        return;
+      } catch {
+        // Fallback below
+      }
+    }
+
     const link = window.document.createElement("a");
     link.href = fileUrl;
     link.download = fileName;
@@ -211,7 +247,7 @@ function PreviewContent({
 }: PreviewContentProps) {
   const previewType = previewMeta.fileType;
   const needsFetchLoading = previewType === "docx" || previewType === "xlsx" || previewType === "csv";
-  const needsMediaLoading = previewType === "pdf" || previewType === "image";
+  const needsMediaLoading = previewType === "image";
 
   const [isLoading, setIsLoading] = useState(needsFetchLoading || needsMediaLoading);
   const [isZoomed, setIsZoomed] = useState(false);
@@ -265,11 +301,6 @@ function PreviewContent({
     if (previewType !== "xlsx") return;
 
     let cancelled = false;
-    setIsLoading(true);
-    setPreviewFailed(false);
-    setWorkbook(null);
-    setSheetNames([]);
-    setActiveSheet("");
 
     fetch(fileUrl)
       .then((response) => {
@@ -279,12 +310,13 @@ function PreviewContent({
         return response.arrayBuffer();
       })
       .then((buffer) => {
-        const parsedWorkbook = XLSX.read(buffer);
+        const parsedWorkbook = XLSX.read(buffer, { type: "array" });
         if (cancelled) return;
 
+        const sheets = parsedWorkbook?.SheetNames ?? [];
         setWorkbook(parsedWorkbook);
-        setSheetNames(parsedWorkbook.SheetNames);
-        setActiveSheet(parsedWorkbook.SheetNames[0] ?? "");
+        setSheetNames(sheets);
+        setActiveSheet(sheets[0] ?? "");
         setIsLoading(false);
       })
       .catch(() => {
@@ -303,9 +335,6 @@ function PreviewContent({
     if (previewType !== "csv") return;
 
     let cancelled = false;
-    setIsLoading(true);
-    setPreviewFailed(false);
-    setCsvTableHtml("");
 
     fetch(fileUrl)
       .then((response) => {
@@ -339,7 +368,18 @@ function PreviewContent({
     const sheet = workbook.Sheets[activeSheet];
     if (!sheet) return "";
 
-    return XLSX.utils.sheet_to_html(sheet);
+    // If worksheet has no range (!ref), SheetJS sheet_to_html will crash with:
+    // TypeError: Cannot read properties of undefined (reading 'indexOf')
+    if (!sheet["!ref"]) {
+      return '<div class="flex items-center justify-center p-8 text-sm text-gray-500 dark:text-gray-400">This worksheet is empty.</div>';
+    }
+
+    try {
+      return XLSX.utils.sheet_to_html(sheet);
+    } catch (err) {
+      console.warn("Failed to convert sheet to HTML:", err);
+      return '<div class="flex items-center justify-center p-8 text-sm text-gray-500 dark:text-gray-400">Unable to preview this worksheet.</div>';
+    }
   }, [activeSheet, previewType, workbook]);
 
   useEffect(() => {
@@ -443,27 +483,12 @@ function PreviewContent({
 
           {/* ── PDF ── */}
           {previewType === "pdf" && !previewFailed && (
-            <div className="flex flex-1 overflow-hidden">
-              {/* Main viewer column */}
-              <div className="flex flex-1 flex-col overflow-hidden">
-                {/* Inner toolbar */}
-                <PdfInnerToolbar />
-
-                {/* iframe fills the rest */}
-                <div className="flex-1 overflow-hidden bg-gray-100 dark:bg-gray-800">
-                  <iframe
-                    src={fileUrl}
-                    className="h-full w-full border-none bg-white"
-                    title={fileName}
-                    onLoad={() => setIsLoading(false)}
-                    onError={() => {
-                      setIsLoading(false);
-                      setPreviewFailed(true);
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
+            <PdfViewer
+              fileUrl={fileUrl}
+              fileName={fileName}
+              onDownload={onDownload}
+              onError={() => setPreviewFailed(true)}
+            />
           )}
 
           {/* ── Image ── */}
@@ -599,57 +624,5 @@ function PreviewContent({
         </div>
       </section>
     </>
-  );
-}
-
-
-/** Slim toolbar inside the PDF viewer column */
-function PdfInnerToolbar() {
-  return (
-    <div className="flex h-9 flex-shrink-0 items-center gap-1.5 border-b border-gray-100 bg-gray-50 px-3 dark:border-gray-800 dark:bg-gray-800/40">
-      <button
-        type="button"
-        title="Previous page"
-        className="flex h-6 w-6 items-center justify-center rounded text-gray-400 transition hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        title="Next page"
-        className="flex h-6 w-6 items-center justify-center rounded text-gray-400 transition hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-      >
-        <ChevronRight className="h-4 w-4" />
-      </button>
-
-      <span className="flex-1 text-center text-[11px] text-gray-400 dark:text-gray-500">
-        Page 1 of 12
-      </span>
-
-      <button
-        type="button"
-        title="Zoom out"
-        className="flex h-6 w-6 items-center justify-center rounded text-gray-400 transition hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-      >
-        <ZoomOut className="h-3.5 w-3.5" />
-      </button>
-      <span className="w-9 text-center text-[11px] text-gray-400 dark:text-gray-500">
-        100%
-      </span>
-      <button
-        type="button"
-        title="Zoom in"
-        className="flex h-6 w-6 items-center justify-center rounded text-gray-400 transition hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-      >
-        <ZoomIn className="h-3.5 w-3.5" />
-      </button>
-      <button
-        type="button"
-        title="Fullscreen"
-        className="flex h-6 w-6 items-center justify-center rounded text-gray-400 transition hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-      >
-        <Maximize2 className="h-3.5 w-3.5" />
-      </button>
-    </div>
   );
 }
