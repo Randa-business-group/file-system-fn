@@ -71,12 +71,12 @@ function NavLinkContent({
 
   return (
     <>
-      {label}
+      <span className="transition-transform duration-150 group-hover:-translate-y-0.5">{label}</span>
       <span
         aria-hidden
         className={cn(
           "absolute -bottom-0.5 left-0 h-0.5 rounded-full bg-primary transition-all duration-200",
-          isActive ? "w-full opacity-100" : "w-0 opacity-0",
+          isActive ? "w-full opacity-100" : "w-0 opacity-0 group-hover:w-full group-hover:opacity-40",
         )}
       />
     </>
@@ -97,7 +97,7 @@ export function LandingNavLink({
   const isActive = useIsNavLinkActive(href);
 
   const className = cn(
-    "relative inline-flex no-underline transition hover:no-underline",
+    "group relative inline-flex no-underline transition hover:no-underline",
     variant === "desktop"
       ? cn(
           "flex-col items-center px-1 py-1 text-sm font-medium",
@@ -140,7 +140,7 @@ export function LandingFooterLink({
   label: string;
 }) {
   const className =
-    "text-sm text-secondary no-underline transition hover:text-primary hover:no-underline";
+    "inline-flex items-center gap-1 text-sm text-secondary no-underline transition-all duration-150 hover:translate-x-1 hover:text-primary hover:no-underline";
 
   if (href.startsWith("/")) {
     return (

@@ -1,6 +1,7 @@
-export { FeaturesCta } from "./FeaturesCta";
 export { ContactHero } from "./ContactHero";
 export { ContactSection } from "./ContactSection";
+export { FAQSection } from "./FAQSection";
+export { FeaturesCta } from "./FeaturesCta";
 export { FeatureShowcaseBlock, FeaturesShowcaseList } from "./FeatureShowcaseBlock";
 export { FeaturesHero } from "./FeaturesHero";
 export { HeroSection } from "./HeroSection";
@@ -9,3 +10,6 @@ export { LandingFooter } from "./LandingFooter";
 export { LandingNavbar } from "./LandingNavbar";
 export { LandingShell } from "./LandingShell";
 export { PricingSection } from "./PricingSection";
+export { ProblemSection } from "./ProblemSection";
+export { SolutionSection } from "./SolutionSection";
+export { AnimatedSection, SpotlightCard, CountUp } from "./motion";

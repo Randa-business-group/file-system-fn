@@ -44,6 +44,13 @@ export function FeatureShowcaseBlock({
     >
       <div className="mx-auto grid max-w-7xl items-center gap-8 px-4 sm:px-6 lg:grid-cols-2 lg:gap-10 lg:px-8">
         <div className={imageFirst ? "lg:order-2" : "lg:order-1"}>
+          {/* Benefit badge */}
+          {feature.benefit && (
+            <span className="mb-3 inline-flex items-center rounded-full bg-primary-subtle px-3 py-1 text-xs font-semibold text-primary">
+              {feature.benefit}
+            </span>
+          )}
+
           <h2 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
             {feature.title}
           </h2>
