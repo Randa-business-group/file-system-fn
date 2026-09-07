@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Building, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -15,13 +15,15 @@ import {
 import { AddDepartmentModal } from "@/components/departments/AddDepartmentModal";
 import { EditDepartmentModal } from "@/components/departments/EditDepartmentModal";
 import { InviteAdminModal } from "@/components/departments/InviteAdminModal";
-import { DepartmentRow } from "@/components/departments/DepartmentRow";
+import { DepartmentAdminAction } from "@/components/departments/DepartmentRow";
 import { OrgPageHeader } from "@/components/org/OrgPageHeader";
+import { DataTable, type ColumnDef, type TableFilter } from "@/components/table/page";
 import {
-  OrgTableHead,
-  OrgTableShell,
-  OrgTableTh,
-} from "@/components/org/OrgTableShell";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
@@ -64,15 +66,6 @@ export default function DashboardDepartmentsPage() {
     }
   }, [isBranchManager, isLoading, isOwner, router, user]);
 
-  if (isLoading || !user) {
-    return (
-      <div className="space-y-6 p-6">
-        <LoadingSkeleton width={280} height={32} />
-        <LoadingSkeleton height={280} rounded="1rem" />
-      </div>
-    );
-  }
-
   const newDepartmentButton = canManage ? (
     <button
       type="button"
@@ -83,6 +76,162 @@ export default function DashboardDepartmentsPage() {
       New Department
     </button>
   ) : undefined;
+
+  const columns: ColumnDef<Department>[] = useMemo(
+    () => [
+      {
+        id: "name",
+        accessorKey: "name",
+        header: "Name",
+        sortable: true,
+        cell: ({ row }) => (
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-subtle text-primary">
+              <Building className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-foreground group-hover:text-primary">
+                {row.name}
+              </p>
+              {row.branch ? (
+                <p className="mt-0.5 truncate text-xs text-muted">
+                  {row.branch.name}
+                </p>
+              ) : (
+                <p className="mt-0.5 truncate text-xs text-muted">/{row.slug}</p>
+              )}
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: "memberCount",
+        accessorKey: "memberCount",
+        header: "Members",
+        sortable: true,
+        cell: ({ row }) => (
+          <span className="tabular-nums text-secondary">
+            {row.memberCount ?? 0}
+          </span>
+        ),
+      },
+      {
+        id: "folderCount",
+        accessorKey: "folderCount",
+        header: "Folders",
+        sortable: true,
+        cell: ({ row }) => (
+          <span className="tabular-nums text-secondary">
+            {row.folderCount ?? 0}
+          </span>
+        ),
+      },
+      {
+        id: "createdAt",
+        accessorKey: "createdAt",
+        header: "Created",
+        sortable: true,
+        cell: ({ row }) => (
+          <span className="text-secondary">
+            {new Date(row.createdAt).toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </span>
+        ),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        align: "right",
+        cell: ({ row }) => (
+          <div
+            className="flex items-center justify-end gap-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <DepartmentAdminAction
+              departmentSlug={row.slug}
+              onInvite={() => {
+                setSelectedDepartment(row);
+                setIsInviteModalOpen(true);
+              }}
+              isBusy={isBusy}
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="inline-flex rounded-lg p-2 text-muted transition hover:bg-[var(--color-bg-secondary)] hover:text-foreground"
+                ariaLabel={`Actions for ${row.name}`}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[180px]">
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedDepartment(row);
+                    setIsEditModalOpen(true);
+                  }}
+                  disabled={isBusy}
+                  className="flex items-center gap-2"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedDepartment(row);
+                    setIsDeleteModalOpen(true);
+                  }}
+                  disabled={isBusy}
+                  className="flex items-center gap-2 text-red-600 focus:text-red-600 focus:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        ),
+      },
+    ],
+    [isBusy],
+  );
+
+  const filters: TableFilter<Department>[] = useMemo(() => {
+    const branchMap = new Map<string, string>();
+    departments.forEach((dept) => {
+      if (dept.branch?.id && dept.branch?.name) {
+        branchMap.set(dept.branch.id, dept.branch.name);
+      }
+    });
+
+    if (branchMap.size === 0) return [];
+
+    return [
+      {
+        id: "branch",
+        label: "Branch",
+        placeholder: "All Branches",
+        options: [
+          { value: "", label: "All Branches" },
+          ...Array.from(branchMap.entries()).map(([id, name]) => ({
+            value: id,
+            label: name,
+          })),
+        ],
+        filterFn: (dept, val) => !val || dept.branch?.id === val,
+      },
+    ];
+  }, [departments]);
+
+  if (isLoading || !user) {
+    return (
+      <div className="space-y-6 p-6">
+        <LoadingSkeleton width={280} height={32} />
+        <LoadingSkeleton height={280} rounded="1rem" />
+      </div>
+    );
+  }
 
   if (isError) {
     return (
@@ -101,44 +250,6 @@ export default function DashboardDepartmentsPage() {
     );
   }
 
-  if (!departments.length && !isDepartmentsLoading) {
-    return (
-      <div className="space-y-6 p-6">
-        <OrgPageHeader
-          title="Departments"
-          description="Create and manage departments for the organization."
-          action={newDepartmentButton}
-        />
-        <EmptyState
-          title="No departments yet"
-          description="Create your first department and manage users by department."
-          actionLabel="Create a Department"
-          onAction={() => setIsAddModalOpen(true)}
-        />
-        <AddDepartmentModal
-          isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-          onConfirm={(name) => {
-            createDepartment(
-              { name },
-              {
-                onSuccess: () => toast.success("Department created successfully"),
-                onError: (error) => {
-                  toast.error(
-                    error instanceof Error
-                      ? error.message
-                      : "Unable to create department.",
-                  );
-                },
-              },
-            );
-          }}
-          isSubmitting={isCreatingDepartment}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 p-6">
       <OrgPageHeader
@@ -147,46 +258,19 @@ export default function DashboardDepartmentsPage() {
         action={newDepartmentButton}
       />
 
-      <OrgTableShell>
-        <table className="w-full min-w-[640px] text-sm">
-          <OrgTableHead>
-            <OrgTableTh>Name</OrgTableTh>
-            <OrgTableTh>Members</OrgTableTh>
-            <OrgTableTh>Folders</OrgTableTh>
-            <OrgTableTh>Created</OrgTableTh>
-            <OrgTableTh align="right">Actions</OrgTableTh>
-          </OrgTableHead>
-          <tbody>
-            {isDepartmentsLoading
-              ? [...Array(4)].map((_, index) => (
-                  <tr key={index} className="border-t border-default">
-                    <td colSpan={5} className="px-5 py-4">
-                      <LoadingSkeleton height={40} rounded="0.5rem" />
-                    </td>
-                  </tr>
-                ))
-              : departments.map((department) => (
-                  <DepartmentRow
-                    key={department.id}
-                    department={department}
-                    onEdit={() => {
-                      setSelectedDepartment(department);
-                      setIsEditModalOpen(true);
-                    }}
-                    onInviteAdmin={() => {
-                      setSelectedDepartment(department);
-                      setIsInviteModalOpen(true);
-                    }}
-                    onDelete={() => {
-                      setSelectedDepartment(department);
-                      setIsDeleteModalOpen(true);
-                    }}
-                    isBusy={isBusy}
-                  />
-                ))}
-          </tbody>
-        </table>
-      </OrgTableShell>
+      <DataTable<Department>
+        data={departments}
+        columns={columns}
+        isLoading={isDepartmentsLoading}
+        emptyMessage="No departments found."
+        searchable={true}
+        searchPlaceholder="Search departments..."
+        filters={filters}
+        paginated={true}
+        pageSize={10}
+        pageSizeOptions={[10, 20, 50]}
+        onRowClick={(dept) => router.push(`/dashboard/departments/${dept.slug}`)}
+      />
 
       <AddDepartmentModal
         key="add-department-modal"

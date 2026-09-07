@@ -117,7 +117,7 @@ export function DepartmentRow({
   );
 }
 
-function DepartmentAdminAction({
+export function DepartmentAdminAction({
   departmentSlug,
   onInvite,
   isBusy,

@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { UserX } from "lucide-react";
 import { toast } from "sonner";
 import { RoleBadge } from "@/components/ui/Badge";
 import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
-import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
+import { DataTable, type ColumnDef, type TableFilter } from "@/components/table/page";
 import { useCancelInvitation } from "@/lib/hooks/useInvitations";
 import { useAuth } from "@/lib/auth-context";
 import type { Invitation } from "@/types/invitation";
@@ -45,7 +45,6 @@ export function MembersTable({
   currentUserRole,
   isLoading,
   isInvitationsLoading = false,
-  onChangeRole,
   onRemove,
 }: MembersTableProps) {
   const { isOwner, user } = useAuth();
@@ -71,176 +70,222 @@ export function MembersTable({
       return members.filter((member) => member.department?.id === user.departmentId);
     }
     return members;
-  }, [currentUserRole, isOwner, members, user?.branchId, user?.departmentId]);
+  }, [currentUserRole, isOwner, members, user]);
 
   const showBranchColumn = isOwner;
 
-  const handleDeleteClick = (memberId: string, memberName: string) => {
+  const handleDeleteClick = useCallback((memberId: string, memberName: string) => {
     setDeleteConfirm({ isOpen: true, memberId, memberName });
-  };
+  }, []);
 
   const handleConfirmDelete = () => {
     onRemove(deleteConfirm.memberId);
     setDeleteConfirm({ isOpen: false, memberId: "", memberName: "" });
   };
 
-  const handleCancelInvitation = async (invitationId: string) => {
-    try {
-      await cancelInvitation.mutateAsync(invitationId);
-      toast.success("Invitation cancelled successfully");
-    } catch {
-      toast.error("Unable to cancel invitation.");
-    }
-  };
+  const handleCancelInvitation = useCallback(
+    async (invitationId: string) => {
+      try {
+        await cancelInvitation.mutateAsync(invitationId);
+        toast.success("Invitation cancelled successfully");
+      } catch {
+        toast.error("Unable to cancel invitation.");
+      }
+    },
+    [cancelInvitation],
+  );
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div key={index} className="overflow-hidden rounded-3xl border border-default bg-surface p-5 shadow-sm">
-            <div className="grid gap-4 text-sm sm:grid-cols-[160px_1fr_120px_120px_180px]">
-              <LoadingSkeleton height={24} width={120} rounded="1rem" />
-              <LoadingSkeleton height={24} width="100%" rounded="1rem" />
-              <LoadingSkeleton height={24} width={100} rounded="1rem" />
-              <LoadingSkeleton height={24} width={100} rounded="1rem" />
-              <LoadingSkeleton height={24} width={140} rounded="1rem" />
-            </div>
+  const memberFilters: TableFilter<Member>[] = useMemo(
+    () => [
+      {
+        id: "role",
+        label: "Role",
+        placeholder: "All Roles",
+        options: [
+          { value: "", label: "All Roles" },
+          { value: Role.OWNER, label: "Owner" },
+          { value: Role.BRANCH_MANAGER, label: "Branch Manager" },
+          { value: Role.DEPT_MANAGER, label: "Dept Manager" },
+          { value: Role.MEMBER, label: "Member" },
+        ],
+        filterFn: (row, val) => !val || row.role === val,
+      },
+    ],
+    [],
+  );
+
+  const memberColumns: ColumnDef<Member>[] = useMemo(
+    () => [
+      {
+        id: "avatar",
+        header: "Avatar",
+        width: "70px",
+        cell: ({ row }) => (
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary-subtle text-sm font-semibold text-primary">
+            {getInitials(row.name)}
           </div>
-        ))}
-      </div>
-    );
-  }
+        ),
+      },
+      {
+        id: "name",
+        accessorKey: "name",
+        header: "Name",
+        sortable: true,
+        cell: ({ row }) => (
+          <span className="font-medium text-foreground">{row.name}</span>
+        ),
+      },
+      {
+        id: "email",
+        accessorKey: "email",
+        header: "Email",
+        sortable: true,
+        cell: ({ row }) => (
+          <span className="text-secondary">{row.email}</span>
+        ),
+      },
+      ...(showBranchColumn
+        ? [
+            {
+              id: "branch",
+              accessorKey: "branch.name",
+              header: "Branch",
+              sortable: true,
+              cell: ({ row }: { row: Member }) => (
+                <span className="text-secondary">{row.branch?.name ?? "—"}</span>
+              ),
+            },
+          ]
+        : []),
+      {
+        id: "department",
+        accessorKey: "department.name",
+        header: "Department",
+        sortable: true,
+        cell: ({ row }) => (
+          <span className="text-secondary">{row.department?.name ?? "—"}</span>
+        ),
+      },
+      {
+        id: "role",
+        accessorKey: "role",
+        header: "Role",
+        sortable: true,
+        cell: ({ row }) => <RoleBadge role={row.role} />,
+      },
+      {
+        id: "createdAt",
+        accessorKey: "createdAt",
+        header: "Date Joined",
+        sortable: true,
+        cell: ({ row }) => (
+          <span className="text-secondary">{row.createdAt}</span>
+        ),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        align: "right",
+        cell: ({ row }) => (
+          <div className="flex flex-wrap justify-end gap-2">
+            {canManageMembers(currentUserRole) ? (
+              <button
+                type="button"
+                onClick={() => handleDeleteClick(row.id, row.name)}
+                className="inline-flex items-center gap-2 rounded-2xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100"
+              >
+                <UserX className="h-4 w-4" />
+                Remove
+              </button>
+            ) : null}
+          </div>
+        ),
+      },
+    ],
+    [currentUserRole, handleDeleteClick, showBranchColumn],
+  );
 
-  const colSpan = showBranchColumn ? 8 : 7;
+  const invitationColumns: ColumnDef<Invitation>[] = useMemo(
+    () => [
+      {
+        id: "email",
+        accessorKey: "email",
+        header: "Email",
+        sortable: true,
+        cell: ({ row }) => (
+          <span className="font-medium text-foreground">{row.email}</span>
+        ),
+      },
+      {
+        id: "role",
+        accessorKey: "role",
+        header: "Role",
+        sortable: true,
+        cell: ({ row }) => <RoleBadge role={row.role} />,
+      },
+      {
+        id: "createdAt",
+        accessorKey: "createdAt",
+        header: "Date Sent",
+        sortable: true,
+        cell: ({ row }) => (
+          <span className="text-secondary">
+            {new Date(row.createdAt).toLocaleDateString()}
+          </span>
+        ),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        align: "right",
+        cell: ({ row }) => (
+          <button
+            type="button"
+            onClick={() => void handleCancelInvitation(row.id)}
+            disabled={cancelInvitation.isLoading}
+            className="rounded-2xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {cancelInvitation.isLoading ? "Cancelling..." : "Cancel"}
+          </button>
+        ),
+      },
+    ],
+    [cancelInvitation.isLoading, handleCancelInvitation],
+  );
 
   return (
-    <>
-      <div className="overflow-hidden rounded-3xl border border-default bg-surface shadow-sm">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-[var(--color-bg-secondary)] text-secondary">
-            <tr>
-              <th className="px-5 py-4 font-medium">Avatar</th>
-              <th className="px-5 py-4 font-medium">Name</th>
-              <th className="px-5 py-4 font-medium">Email</th>
-              {showBranchColumn ? (
-                <th className="px-5 py-4 font-medium">Branch</th>
-              ) : null}
-              <th className="px-5 py-4 font-medium">Department</th>
-              <th className="px-5 py-4 font-medium">Role</th>
-              <th className="px-5 py-4 font-medium">Date Joined</th>
-              <th className="px-5 py-4 font-medium text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredMembers.length === 0 ? (
-              <tr className="border-t border-default">
-                <td colSpan={colSpan} className="px-5 py-8 text-center text-sm text-secondary">
-                  No members have accepted an invitation yet.
-                </td>
-              </tr>
-            ) : (
-              filteredMembers.map((member) => (
-                <tr key={member.id} className="border-t border-default">
-                  <td className="px-5 py-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary-subtle text-sm font-semibold text-primary">
-                      {getInitials(member.name)}
-                    </div>
-                  </td>
-                  <td className="px-5 py-4 text-foreground">{member.name}</td>
-                  <td className="px-5 py-4 text-secondary">{member.email}</td>
-                  {showBranchColumn ? (
-                    <td className="px-5 py-4 text-secondary">
-                      {member.branch?.name ?? "—"}
-                    </td>
-                  ) : null}
-                  <td className="px-5 py-4 text-secondary">
-                    {member.department?.name ?? "—"}
-                  </td>
-                  <td className="px-5 py-4">
-                    <RoleBadge role={member.role} />
-                  </td>
-                  <td className="px-5 py-4 text-secondary">{member.createdAt}</td>
-                  <td className="px-5 py-4 text-right">
-                    <div className="flex flex-wrap justify-end gap-2">
-                      {canManageMembers(currentUserRole) ? (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteClick(member.id, member.name)}
-                          className="inline-flex items-center gap-2 rounded-2xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100"
-                        >
-                          <UserX className="h-4 w-4" />
-                          Remove
-                        </button>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+    <div className="space-y-8">
+      <DataTable<Member>
+        data={filteredMembers}
+        columns={memberColumns}
+        isLoading={isLoading}
+        title="Workspace Members"
+        description="Active team members with access to your workspace."
+        emptyMessage="No members have accepted an invitation yet."
+        searchable={true}
+        searchPlaceholder="Search members..."
+        searchFields={["name", "email", "department.name", "branch.name", "role"]}
+        filters={memberFilters}
+        paginated={true}
+        pageSize={10}
+        pageSizeOptions={[10, 20, 50]}
+        keyExtractor={(member) => member.id}
+      />
 
-      <div className="overflow-hidden rounded-3xl border border-default bg-surface shadow-sm">
-        <div className="border-b border-default px-5 py-4">
-          <h2 className="text-base font-semibold text-foreground">Pending Invitations</h2>
-          <p className="mt-1 text-sm text-secondary">
-            Track invitations that are waiting for acceptance.
-          </p>
-        </div>
-
-        {isInvitationsLoading ? (
-          <div className="space-y-3 p-5">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div
-                key={index}
-                className="grid gap-4 rounded-2xl border border-default p-4 sm:grid-cols-[1.5fr_120px_140px_120px]"
-              >
-                <LoadingSkeleton height={20} width="100%" rounded="1rem" />
-                <LoadingSkeleton height={20} width={100} rounded="1rem" />
-                <LoadingSkeleton height={20} width={110} rounded="1rem" />
-                <LoadingSkeleton height={20} width={90} rounded="1rem" />
-              </div>
-            ))}
-          </div>
-        ) : invitations.length > 0 ? (
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[var(--color-bg-secondary)] text-secondary">
-              <tr>
-                <th className="px-5 py-4 font-medium">Email</th>
-                <th className="px-5 py-4 font-medium">Role</th>
-                <th className="px-5 py-4 font-medium">Date Sent</th>
-                <th className="px-5 py-4 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invitations.map((invitation) => (
-                <tr key={invitation.id} className="border-t border-default">
-                  <td className="px-5 py-4 text-foreground">{invitation.email}</td>
-                  <td className="px-5 py-4">
-                    <RoleBadge role={invitation.role} />
-                  </td>
-                  <td className="px-5 py-4 text-secondary">
-                    {new Date(invitation.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-5 py-4 text-right">
-                    <button
-                      type="button"
-                      onClick={() => void handleCancelInvitation(invitation.id)}
-                      disabled={cancelInvitation.isLoading}
-                      className="rounded-2xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {cancelInvitation.isLoading ? "Cancelling..." : "Cancel"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div className="px-5 py-8 text-sm text-secondary">No pending invitations.</div>
-        )}
-      </div>
+      <DataTable<Invitation>
+        data={invitations}
+        columns={invitationColumns}
+        isLoading={isInvitationsLoading}
+        title="Pending Invitations"
+        description="Track invitations that are waiting for acceptance."
+        emptyMessage="No pending invitations."
+        searchable={invitations.length > 5}
+        searchPlaceholder="Search invitations..."
+        paginated={invitations.length > 5}
+        pageSize={5}
+        pageSizeOptions={[5, 10, 20]}
+        keyExtractor={(invitation) => invitation.id}
+      />
 
       <DeleteConfirmationModal
         isOpen={deleteConfirm.isOpen}
@@ -250,6 +295,6 @@ export function MembersTable({
         description={`Are you sure you want to remove "${deleteConfirm.memberName}" from the workspace? They will lose access to all folders and documents.`}
         itemNameToConfirm={deleteConfirm.memberName}
       />
-    </>
+    </div>
   );
 }

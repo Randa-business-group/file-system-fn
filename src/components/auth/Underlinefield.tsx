@@ -8,6 +8,7 @@ interface UnderlineFieldProps {
   type: "text" | "email" | "password" | "tel";
   value: string;
   onChange: (v: string) => void;
+  onBlur?: () => void;
   error?: string;
   autoComplete?: string;
   placeholder?: string;
@@ -39,6 +40,7 @@ export function UnderlineField({
   type,
   value,
   onChange,
+  onBlur,
   error,
   autoComplete,
   placeholder,
@@ -82,7 +84,12 @@ export function UnderlineField({
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
+          onBlur={() => {
+            setFocused(false);
+            onBlur?.();
+          }}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? `${id}-error` : undefined}
           className={[
             "w-full bg-transparent py-1.5 pb-2 text-sm text-foreground outline-none",
             "transition-all duration-200 placeholder-transparent",
@@ -118,7 +125,8 @@ export function UnderlineField({
 
       {error && (
         <p
-          className="mt-1 text-[10px] tracking-wide"
+          id={`${id}-error`}
+          className="mt-1 text-[10px] tracking-wide animate-[fadeUp_0.15s_ease_both]"
           style={{ color: "var(--color-error, #ef4444)" }}
         >
           {error}

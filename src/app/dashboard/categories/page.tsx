@@ -1,17 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { Plus, Tag, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AddCategoryModal } from "@/components/categories/AddCategoryModal";
-import { CategoryCard } from "@/components/categories/CategoryCard";
 import { OrgPageHeader } from "@/components/org/OrgPageHeader";
-import {
-  OrgTableHead,
-  OrgTableShell,
-  OrgTableTh,
-} from "@/components/org/OrgTableShell";
+import { DataTable, type ColumnDef } from "@/components/table/page";
+import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { useAuth } from "@/lib/auth-context";
@@ -21,6 +17,7 @@ import {
   useGetCategories,
 } from "@/lib/hooks/useCategories";
 import { Role } from "@/types/enum";
+import type { Category } from "@/types/category";
 
 const PAGE_SIZE = 10;
 
@@ -28,12 +25,16 @@ export default function DashboardCategoriesPage() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
+  const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
 
   const { categories, pagination, isLoading: isCategoriesLoading, isError } =
     useGetCategories({
       page,
-      limit: PAGE_SIZE,
+      limit: pageSize,
+      search: search.trim() || undefined,
     });
   const { mutate: createCategory, isLoading: isCreatingCategory } =
     useCreateCategory();
@@ -49,11 +50,7 @@ export default function DashboardCategoriesPage() {
     }
   }, [isLoading, router, user]);
 
-  useEffect(() => {
-    if (totalPages > 0 && page > totalPages) {
-      setPage(totalPages);
-    }
-  }, [page, totalPages]);
+  const activePage = totalPages > 0 ? Math.min(page, totalPages) : 1;
 
   const handleAddCategory = async (name: string) => {
     createCategory(
@@ -62,6 +59,7 @@ export default function DashboardCategoriesPage() {
         onSuccess: (category) => {
           toast.success(`Category "${category.name}" created successfully`);
           setPage(1);
+          setIsModalOpen(false);
         },
         onError: (error) => {
           const message =
@@ -72,10 +70,12 @@ export default function DashboardCategoriesPage() {
     );
   };
 
-  const handleDeleteCategory = async (categoryId: string) => {
-    deleteCategory(categoryId, {
+  const handleConfirmDelete = async () => {
+    if (!categoryToDelete) return;
+    deleteCategory(categoryToDelete.id, {
       onSuccess: () => {
         toast.success("Category deleted successfully");
+        setCategoryToDelete(null);
         if (categories.length === 1 && page > 1) {
           setPage((current) => Math.max(1, current - 1));
         }
@@ -88,8 +88,14 @@ export default function DashboardCategoriesPage() {
     });
   };
 
-  const handlePageChange = (nextPage: number) => {
-    setPage(Math.min(Math.max(1, nextPage), totalPages));
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
   };
 
   const addCategoryButton = (
@@ -101,6 +107,102 @@ export default function DashboardCategoriesPage() {
       <Plus className="h-4 w-4" />
       Add Category
     </button>
+  );
+
+  const columns: ColumnDef<Category>[] = useMemo(
+    () => [
+      {
+        id: "name",
+        accessorKey: "name",
+        header: "Category",
+        sortable: true,
+        cell: ({ row }) => (
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-subtle text-primary">
+              <Tag className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-foreground">{row.name}</p>
+              <p className="mt-0.5 truncate text-xs text-muted">
+                {row.slug ? `/${row.slug}` : "Category"}
+              </p>
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: "documentCount",
+        accessorKey: "documentCount",
+        header: "Documents",
+        sortable: true,
+        cell: ({ row }) => {
+          const documentCount = row.documentCount ?? 0;
+          return (
+            <span className="tabular-nums text-secondary">
+              <span
+                className={
+                  documentCount > 0
+                    ? "font-medium text-foreground"
+                    : "text-muted"
+                }
+              >
+                {documentCount}
+              </span>
+              <span className="ml-1 text-muted">
+                {documentCount === 1 ? "document" : "documents"}
+              </span>
+            </span>
+          );
+        },
+      },
+      {
+        id: "createdAt",
+        accessorKey: "createdAt",
+        header: "Created",
+        sortable: true,
+        cell: ({ row }) => (
+          <span className="text-secondary">
+            {new Date(row.createdAt).toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </span>
+        ),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        align: "right",
+        cell: ({ row }) => {
+          const documentCount = row.documentCount ?? 0;
+          const hasDocuments = documentCount > 0;
+
+          return (
+            <div
+              className="flex items-center justify-end"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setCategoryToDelete(row)}
+                disabled={isDeletingCategory || hasDocuments}
+                title={
+                  hasDocuments
+                    ? "Reassign documents before deleting this category"
+                    : `Delete ${row.name}`
+                }
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-default bg-surface text-secondary transition hover:bg-[var(--color-bg-secondary)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label={`Delete ${row.name}`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          );
+        },
+      },
+    ],
+    [isDeletingCategory],
   );
 
   if (isLoading || !user) {
@@ -138,101 +240,40 @@ export default function DashboardCategoriesPage() {
         action={addCategoryButton}
       />
 
-      {isCategoriesLoading ? (
-        <OrgTableShell>
-          <table className="w-full min-w-[640px] text-sm">
-            <OrgTableHead>
-              <OrgTableTh>Category</OrgTableTh>
-              <OrgTableTh>Documents</OrgTableTh>
-              <OrgTableTh>Created</OrgTableTh>
-              <OrgTableTh align="right">Actions</OrgTableTh>
-            </OrgTableHead>
-            <tbody>
-              {[...Array(5)].map((_, index) => (
-                <tr key={index} className="border-t border-default">
-                  <td colSpan={4} className="px-5 py-4">
-                    <LoadingSkeleton height={40} rounded="0.5rem" />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </OrgTableShell>
-      ) : categories.length > 0 ? (
-        <>
-          <p className="text-sm text-secondary">
-            {totalCategories === 1
-              ? "1 category"
-              : `${totalCategories} categories`}
-            {totalPages > 1
-              ? ` · Page ${page} of ${totalPages}`
-              : null}
-          </p>
-
-          <OrgTableShell>
-            <table className="w-full min-w-[640px] text-sm">
-              <OrgTableHead>
-                <OrgTableTh>Category</OrgTableTh>
-                <OrgTableTh>Documents</OrgTableTh>
-                <OrgTableTh>Created</OrgTableTh>
-                <OrgTableTh align="right">Actions</OrgTableTh>
-              </OrgTableHead>
-              <tbody>
-                {categories.map((category) => (
-                  <CategoryCard
-                    key={category.id}
-                    category={category}
-                    onDelete={handleDeleteCategory}
-                    isDeleting={isDeletingCategory}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </OrgTableShell>
-
-          {totalPages > 1 && (
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-secondary">
-                Showing {(page - 1) * PAGE_SIZE + 1}–
-                {Math.min(page * PAGE_SIZE, totalCategories)} of {totalCategories}
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page <= 1 || isCategoriesLoading}
-                  className="inline-flex items-center gap-2 rounded-lg border border-default bg-surface px-4 py-2 text-sm text-foreground transition hover:bg-[var(--color-bg-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page >= totalPages || isCategoriesLoading}
-                  className="inline-flex items-center gap-2 rounded-lg border border-default bg-surface px-4 py-2 text-sm text-foreground transition hover:bg-[var(--color-bg-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          )}
-        </>
-      ) : (
-        <EmptyState
-          title="No categories yet"
-          description="Create categories to organize documents by topic and team needs."
-          actionLabel="Add Category"
-          onAction={() => setIsModalOpen(true)}
-        />
-      )}
+      <DataTable<Category>
+        data={categories}
+        columns={columns}
+        isLoading={isCategoriesLoading}
+        emptyMessage="No categories found."
+        searchable={true}
+        searchValue={search}
+        onSearchChange={handleSearchChange}
+        searchPlaceholder="Search categories..."
+        paginated={true}
+        page={activePage}
+        pageSize={pageSize}
+        totalItems={totalCategories}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        onPageSizeChange={handlePageSizeChange}
+        pageSizeOptions={[10, 20, 50]}
+      />
 
       <AddCategoryModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onConfirm={handleAddCategory}
         isSubmitting={isCreatingCategory}
+      />
+
+      <DeleteConfirmationModal
+        isOpen={Boolean(categoryToDelete)}
+        onClose={() => setCategoryToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Category"
+        description={`Are you sure you want to delete "${categoryToDelete?.name}"? This cannot be undone.`}
+        itemNameToConfirm={categoryToDelete?.name ?? ""}
+        isLoading={isDeletingCategory}
       />
     </div>
   );

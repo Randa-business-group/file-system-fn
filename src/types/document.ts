@@ -149,3 +149,24 @@ export interface MoveDocumentInput {
 export interface RenameDocumentInput {
   fileName: string;
 }
+
+export interface FolderUploadFileItem {
+  file: File;
+  relativePath: string;
+  fileName: string;
+  size: number;
+  mode: UploadProcessingMode;
+  status: "pending" | "uploading" | "queued" | "done" | "error";
+  error?: string;
+}
+
+export interface UploadFolderResult {
+  folder: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  createdFoldersCount: number;
+  uploadedDocuments: Document[];
+  failures: BulkUploadFailure[];
+}
