@@ -31,14 +31,6 @@ export function DashboardHero() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => openUpload()}
-          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary-hover"
-        >
-          <Upload className="h-4 w-4" />
-          Upload document
-        </button>
         <Link
           href="/dashboard/documents"
           className="inline-flex items-center gap-2 rounded-xl border border-default bg-surface px-4 py-2.5 text-sm font-semibold text-foreground transition hover:bg-[var(--color-bg-secondary)]"

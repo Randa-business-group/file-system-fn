@@ -1,18 +1,35 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, ExternalLink, Eye, MoreHorizontal } from "lucide-react";
 import { useGetCategories } from "@/lib/hooks/useCategories";
 import { useGetDocuments } from "@/lib/hooks/useDocuments";
-import { DocumentsTable } from "@/components/documents/DocumentsTable";
+import { DataTable, type ColumnDef, type TableFilter } from "@/components/table/page";
 import { DocumentDetails } from "@/components/documents/DocumentDetails";
 import { DocumentPreview } from "@/components/ui/DocumentPreview";
+import { DocumentTypeIcon } from "@/components/documents/DocumentTypeIcon";
 import { SortBar } from "@/components/ui/SortBar";
-import { AppSelect } from "@/components/ui/AppSelect";
-import { getFileTypeFromName } from "@/lib/upload-file-types";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { getDocumentFileMeta, getFileTypeFromName } from "@/lib/upload-file-types";
 import type { Document, DocumentFilters, SortOption } from "@/types/document";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
+
+function getOwnerName(document: Document) {
+  if (document.documentOwner?.trim()) {
+    return document.documentOwner;
+  }
+
+  const uploadedBy = document.uploadedBy;
+  return typeof uploadedBy === "string"
+    ? uploadedBy
+    : uploadedBy?.name ?? "Unknown";
+}
 
 export default function DashboardDocumentsPage() {
   const [filters, setFilters] = useState<DocumentFilters>({
@@ -28,7 +45,6 @@ export default function DashboardDocumentsPage() {
 
   const { documents, pagination, isLoading } = useGetDocuments(filters);
   const { categories } = useGetCategories();
-  const currentPage = filters.page ?? 1;
 
   const handleSearch = (value: string) => {
     setFilters((prev) => ({
@@ -38,10 +54,10 @@ export default function DashboardDocumentsPage() {
     }));
   };
 
-  const handleCategoryFilter = (categoryId: string | undefined) => {
+  const handleCategoryFilter = (categoryId: string) => {
     setFilters((prev) => ({
       ...prev,
-      categoryId,
+      categoryId: categoryId || undefined,
       page: 1,
     }));
   };
@@ -57,6 +73,15 @@ export default function DashboardDocumentsPage() {
     setFilters((prev) => ({
       ...prev,
       limit,
+      page: 1,
+    }));
+  };
+
+  const handleResetFilters = () => {
+    setFilters((prev) => ({
+      ...prev,
+      search: "",
+      categoryId: undefined,
       page: 1,
     }));
   };
@@ -92,7 +117,6 @@ export default function DashboardDocumentsPage() {
     link.click();
   };
 
-  const totalPages = pagination?.totalPages ?? 1;
   const sortedDocuments = useMemo(() => {
     const items = [...documents];
 
@@ -116,110 +140,180 @@ export default function DashboardDocumentsPage() {
     return items;
   }, [documents, sortBy]);
 
+  // Synchronize column header sorting with SortBar
+  const sortKey = sortBy.startsWith("name") ? "fileName" : "createdAt";
+  const sortOrder: "asc" | "desc" = sortBy.endsWith("asc") ? "asc" : "desc";
+
+  const handleSortChange = (key: string, order: "asc" | "desc" | null) => {
+    if (key === "fileName") {
+      setSortBy(order === "desc" ? "name_desc" : "name_asc");
+    } else if (key === "createdAt" || key === "updatedAt") {
+      setSortBy(order === "asc" ? "date_asc" : "date_desc");
+    }
+  };
+
+  const categoryFilters: TableFilter<Document>[] = useMemo(
+    () => [
+      {
+        id: "categoryId",
+        label: "Category",
+        placeholder: "All Categories",
+        value: filters.categoryId ?? "",
+        onChange: handleCategoryFilter,
+        options: [
+          { value: "", label: "All Categories" },
+          ...categories.map((category) => ({
+            value: category.id,
+            label: category.name,
+          })),
+        ],
+      },
+    ],
+    [categories, filters.categoryId],
+  );
+
+  const columns: ColumnDef<Document>[] = useMemo(
+    () => [
+      {
+        id: "fileName",
+        accessorKey: "fileName",
+        header: "Name",
+        sortable: true,
+        cell: ({ row }) => {
+          const fileMeta = getDocumentFileMeta(row.fileName);
+          return (
+            <div className="flex min-w-0 items-center gap-3">
+              <DocumentTypeIcon fileName={row.fileName} size="sm" />
+              <div className="min-w-0">
+                <button
+                  type="button"
+                  onClick={() => handleOpenDetails(row)}
+                  className="block max-w-[280px] truncate text-left font-medium text-foreground transition hover:text-primary sm:max-w-[340px]"
+                  title={row.title || row.fileName}
+                >
+                  {row.title || row.fileName}
+                </button>
+                <p className="truncate text-xs text-secondary">
+                  {fileMeta.typeLabel}
+                </p>
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        id: "owner",
+        header: "Owner",
+        cell: ({ row }) => (
+          <span className="text-secondary">{getOwnerName(row)}</span>
+        ),
+      },
+      {
+        id: "createdAt",
+        accessorKey: "createdAt",
+        header: "Last Changes",
+        sortable: true,
+        cell: ({ row }) => {
+          const formattedDate = new Date(
+            row.updatedAt || row.createdAt,
+          ).toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+          return <span className="text-secondary">{formattedDate}</span>;
+        },
+      },
+      {
+        id: "category",
+        accessorKey: "category.name",
+        header: "Category",
+        cell: ({ row }) => (
+          <span className="inline-flex items-center rounded-full bg-[var(--color-bg-secondary)] px-2.5 py-0.5 text-xs font-medium text-secondary">
+            {row.category?.name ?? "Unsorted"}
+          </span>
+        ),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        align: "right",
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => handleOpenDocument(row)}
+              className="inline-flex h-8 items-center justify-center rounded-lg border border-default bg-surface px-2.5 text-xs font-medium text-foreground transition hover:bg-[var(--color-bg-secondary)]"
+            >
+              <Eye className="mr-1.5 h-3.5 w-3.5" />
+              Preview
+            </button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-default text-secondary transition hover:bg-[var(--color-bg-secondary)] hover:text-foreground"
+                ariaLabel={`Document actions for ${row.title || row.fileName}`}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[160px]">
+                <DropdownMenuItem onClick={() => handleOpenDetails(row)}>
+                  <Eye className="h-4 w-4" />
+                  Details
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleOpenDocument(row)}>
+                  <ExternalLink className="h-4 w-4" />
+                  Open
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleDownloadDocument(row)}>
+                  <Download className="h-4 w-4" />
+                  Download
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        ),
+      },
+    ],
+    [],
+  );
+
   return (
     <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Documents</h1>
-        <p className="mt-1 text-sm text-secondary">
-          Manage and organize your uploaded documents
-        </p>
-      </div>
-
-      <section className="space-y-4 rounded border border-default bg-surface p-5 shadow-sm">
-        <div className="grid gap-4 sm:grid-cols-[1.5fr_1fr] xl:grid-cols-[1.5fr_1fr_1fr]">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary" />
-            <input
-              type="text"
-              placeholder="Search documents..."
-              value={filters.search ?? ""}
-              onChange={(event) => handleSearch(event.target.value)}
-              className="w-full rounded border border-default bg-[var(--color-bg-secondary)] py-2 pl-10 pr-4 text-foreground placeholder-secondary focus:border-primary focus:outline-none"
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-secondary" />
-            <AppSelect
-              className="flex-1"
-              value={filters.categoryId ?? ""}
-              onValueChange={(value) => handleCategoryFilter(value || undefined)}
-              placeholder="All Categories"
-              triggerClassName="rounded-xl"
-              options={[
-                { value: "", label: "All Categories" },
-                ...categories.map((category) => ({
-                  value: category.id,
-                  label: category.name,
-                })),
-              ]}
-            />
-          </div>
-
-          <div className="flex flex-col gap-2 text-sm text-secondary sm:flex-row sm:items-center sm:justify-end">
-            <span>Page size</span>
-            <AppSelect
-              value={String(filters.limit)}
-              onValueChange={(value) => handlePageSizeChange(Number(value))}
-              placeholder="Page size"
-              triggerClassName="rounded-2xl min-w-[5rem]"
-              options={PAGE_SIZE_OPTIONS.map((option) => ({
-                value: String(option),
-                label: String(option),
-              }))}
-            />
-          </div>
-        </div>
-
-        <div className="rounded-3xl border border-default bg-[var(--color-bg-secondary)] p-4 text-sm text-foreground">
-          {isLoading
-            ? "Loading documents..."
-            : `Showing ${documents.length} of ${pagination?.total ?? 0} documents`}
-        </div>
-
-        <SortBar sortBy={sortBy} onChange={setSortBy} />
-
-        <DocumentsTable
-          documents={sortedDocuments}
-          isLoading={isLoading}
-          onOpen={handleOpenDocument}
-          onDetails={handleOpenDetails}
-          onDownload={handleDownloadDocument}
-          emptyMessage={
-            filters.search || filters.categoryId
-              ? "No documents matched your filters."
-              : "Upload documents to see them here."
-          }
-        />
-
-        {pagination && pagination.totalPages > 1 && (
-          <div className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-secondary">
-              Page {currentPage} of {pagination.totalPages}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                disabled={currentPage <= 1 || isLoading}
-                className="inline-flex items-center gap-2 rounded border border-default bg-surface px-4 py-2 text-sm text-foreground transition hover:bg-[var(--color-bg-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
-              </button>
-              <button
-                type="button"
-                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage >= totalPages || isLoading}
-                className="inline-flex items-center gap-2 rounded border border-default bg-surface px-4 py-2 text-sm text-foreground transition hover:bg-[var(--color-bg-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
+      <DataTable<Document>
+        title="Documents"
+        description="Manage and organize your uploaded documents"
+        data={sortedDocuments}
+        columns={columns}
+        isLoading={isLoading}
+        emptyMessage={
+          filters.search || filters.categoryId
+            ? "No documents matched your filters."
+            : "Upload documents to see them here."
+        }
+        // Search
+        searchable={true}
+        searchPlaceholder="Search documents..."
+        searchValue={filters.search ?? ""}
+        onSearchChange={handleSearch}
+        // Filters
+        filters={categoryFilters}
+        onResetFilters={handleResetFilters}
+        // Sorting
+        sortKey={sortKey}
+        sortOrder={sortOrder}
+        onSortChange={handleSortChange}
+        sortSlot={<SortBar sortBy={sortBy} onChange={setSortBy} />}
+        // Pagination
+        paginated={true}
+        page={filters.page ?? 1}
+        pageSize={filters.limit ?? 20}
+        pageSizeOptions={PAGE_SIZE_OPTIONS}
+        totalItems={pagination?.total ?? documents.length}
+        totalPages={pagination?.totalPages ?? 1}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+      />
 
       <DocumentDetails
         document={selectedDocument}
@@ -234,7 +328,11 @@ export default function DashboardDocumentsPage() {
         onClose={() => setPreviewDocument(null)}
         fileUrl={previewDocument?.fileUrl ?? ""}
         fileName={previewDocument?.fileName ?? ""}
-        fileType={previewDocument ? getFileTypeFromName(previewDocument.fileName) : "application/octet-stream"}
+        fileType={
+          previewDocument
+            ? getFileTypeFromName(previewDocument.fileName)
+            : "application/octet-stream"
+        }
       />
     </div>
   );

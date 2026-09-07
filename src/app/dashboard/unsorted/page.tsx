@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -13,21 +13,11 @@ import {
   FileStack,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { SortBar } from "@/components/ui/SortBar";
 import { DocumentDetails } from "@/components/documents/DocumentDetails";
 import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
 import { OrgPageHeader } from "@/components/org/OrgPageHeader";
-import {
-  TableContainer,
-  Table,
-  TableHeader,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  TableLoading,
-} from "@/components/ui/Table";
+import { DataTable, type ColumnDef, type TableFilter } from "@/components/table/page";
 import { documentApi } from "@/api/document.api";
 import { useGetInbox, useDeleteDocument } from "@/lib/hooks/useDocuments";
 import {
@@ -118,8 +108,6 @@ export default function DashboardUnsortedPage() {
     null,
   );
 
-  const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
-
   const processingCount = documents.filter(
     (d) => d.processingStatus === "processing",
   ).length;
@@ -165,44 +153,40 @@ export default function DashboardUnsortedPage() {
     documents.length > 0 && selectedIds.size === documents.length;
   const someSelected = selectedIds.size > 0 && !allSelected;
 
-  useEffect(() => {
-    if (selectAllCheckboxRef.current) {
-      selectAllCheckboxRef.current.indeterminate = someSelected;
-    }
-  }, [someSelected]);
-
-  const handleToggleAll = () => {
+  const handleToggleAll = useCallback(() => {
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(documents.map((d) => d.id)));
     }
-  };
+  }, [allSelected, documents]);
 
-  const handleToggleSelect = (id: string) => {
-    const newIds = new Set(selectedIds);
-    if (newIds.has(id)) {
-      newIds.delete(id);
-    } else {
-      newIds.add(id);
-    }
-    setSelectedIds(newIds);
-  };
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const newIds = new Set(prev);
+      if (newIds.has(id)) {
+        newIds.delete(id);
+      } else {
+        newIds.add(id);
+      }
+      return newIds;
+    });
+  }, []);
 
-  const handleOpenDetails = (document: Document) => {
+  const handleOpenDetails = useCallback((document: Document) => {
     setSelectedDocumentId(document.id);
     setIsDetailsOpen(true);
-  };
+  }, []);
 
   const handleCloseDetails = () => {
     setIsDetailsOpen(false);
   };
 
-  const handleDeleteSingle = (document: Document) => {
+  const handleDeleteSingle = useCallback((document: Document) => {
     setDocumentToDelete(document);
     setDeleteMode("single");
     setDeleteModalOpen(true);
-  };
+  }, []);
 
   const handleDeleteConfirm = async () => {
     if (deleteMode === "single" && documentToDelete) {
@@ -256,6 +240,163 @@ export default function DashboardUnsortedPage() {
     deleteMode === "multiple"
       ? `${selectedIds.size} documents`
       : documentToDelete?.fileName ?? "document";
+
+  const unsortedFilters: TableFilter<Document>[] = useMemo(
+    () => [
+      {
+        id: "processingStatus",
+        label: "Status",
+        placeholder: "All Statuses",
+        options: [
+          { value: "", label: "All Statuses" },
+          { value: "processing", label: "Processing" },
+          { value: "ready", label: "Ready" },
+          { value: "confirmed", label: "Confirmed" },
+        ],
+        filterFn: (row, val) => !val || row.processingStatus === val,
+      },
+    ],
+    [],
+  );
+
+  const columns: ColumnDef<Document>[] = useMemo(
+    () => [
+      {
+        id: "select",
+        width: "48px",
+        header: () => (
+          <input
+            ref={(el) => {
+              if (el) {
+                el.indeterminate = someSelected;
+              }
+            }}
+            type="checkbox"
+            checked={allSelected}
+            onChange={handleToggleAll}
+            className="cursor-pointer rounded border-default"
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => {
+          const isSelected = selectedIds.has(row.id);
+          return (
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => handleToggleSelect(row.id)}
+              className="cursor-pointer rounded border-default"
+              aria-label={`Select ${row.fileName}`}
+              onClick={(e) => e.stopPropagation()}
+            />
+          );
+        },
+      },
+      {
+        id: "fileName",
+        accessorKey: "fileName",
+        header: "Document",
+        sortable: true,
+        cell: ({ row }) => (
+          <div className="max-w-xs">
+            <button
+              type="button"
+              onClick={() => handleOpenDetails(row)}
+              disabled={row.processingStatus === "processing"}
+              className="block max-w-full truncate text-left font-medium text-foreground hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {row.title || row.fileName}
+            </button>
+            {row.processingStatus === "processing" ? (
+              <p className="mt-0.5 text-xs text-amber-700">
+                OCR & AI in queue…
+              </p>
+            ) : (
+              row.title &&
+              row.fileName !== row.title && (
+                <p className="mt-0.5 truncate text-xs text-secondary">
+                  {row.fileName}
+                </p>
+              )
+            )}
+          </div>
+        ),
+      },
+      {
+        id: "processingStatus",
+        accessorKey: "processingStatus",
+        header: "Status",
+        sortable: true,
+        cell: ({ row }) => <StatusBadge status={row.processingStatus} />,
+      },
+      {
+        id: "category",
+        accessorKey: "category.name",
+        header: "Category",
+        sortable: true,
+        cell: ({ row }) => (
+          <span className="text-secondary">{row.category?.name ?? "—"}</span>
+        ),
+      },
+      {
+        id: "updatedAt",
+        accessorKey: "updatedAt",
+        header: "Updated",
+        sortable: true,
+        cell: ({ row }) => {
+          const formattedDate = new Date(
+            row.updatedAt || row.createdAt,
+          ).toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+          return (
+            <span className="text-secondary tabular-nums">{formattedDate}</span>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        align: "right",
+        cell: ({ row }) => (
+          <div
+            className="flex items-center justify-end gap-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => handleOpenDetails(row)}
+              disabled={row.processingStatus === "processing"}
+              className="rounded bg-[var(--color-bg-tertiary)] px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-[var(--color-bg-secondary)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {row.processingStatus === "processing" ? "Analyzing" : "Review"}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDeleteSingle(row)}
+              disabled={deleteDocument.isLoading}
+              className="rounded p-2 text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+              aria-label="Delete"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ),
+      },
+    ],
+    [
+      allSelected,
+      deleteDocument.isLoading,
+      handleDeleteSingle,
+      handleOpenDetails,
+      handleToggleAll,
+      handleToggleSelect,
+      selectedIds,
+      someSelected,
+    ],
+  );
 
   return (
     <div className="space-y-8 p-6 lg:p-8">
@@ -358,36 +499,7 @@ export default function DashboardUnsortedPage() {
         </div>
       )}
 
-      <SortBar sortBy={sortBy} onChange={setSortBy} />
-
-      {isLoading ? (
-        <div className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-3">
-            {[0, 1, 2].map((i) => (
-              <LoadingSkeleton key={i} height={72} rounded="0.75rem" />
-            ))}
-          </div>
-          <TableContainer>
-            <Table className="min-w-[720px]">
-              <TableHeader>
-                <tr>
-                  <TableHead>
-                    <LoadingSkeleton height={14} width={40} />
-                  </TableHead>
-                  <TableHead>File</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Updated</TableHead>
-                  <TableHead align="right">Actions</TableHead>
-                </tr>
-              </TableHeader>
-              <TableBody>
-                <TableLoading colSpan={6} rows={6} />
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </div>
-      ) : documents.length === 0 ? (
+      {documents.length === 0 && !isLoading ? (
         <div className="rounded-2xl border border-dashed border-default bg-[var(--color-bg-secondary)]/50 py-16">
           <EmptyState
             title="Tray is empty"
@@ -415,119 +527,33 @@ export default function DashboardUnsortedPage() {
             </div>
           )}
 
-          <TableContainer>
-            <Table className="min-w-[720px]">
-              <TableHeader>
-                <tr>
-                  <TableHead>
-                    <input
-                      ref={selectAllCheckboxRef}
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={handleToggleAll}
-                      className="rounded border-default"
-                      aria-label="Select all"
-                    />
-                  </TableHead>
-                  <TableHead>Document</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Updated</TableHead>
-                  <TableHead align="right">Actions</TableHead>
-                </tr>
-              </TableHeader>
-              <TableBody>
-                {sortedDocuments.map((document) => {
-                  const isSelected = selectedIds.has(document.id);
-                  const formattedDate = new Date(
-                    document.updatedAt || document.createdAt,
-                  ).toLocaleDateString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  });
-
-                  return (
-                    <TableRow key={document.id} selected={isSelected}>
-                      <TableCell>
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => handleToggleSelect(document.id)}
-                          className="rounded border-default"
-                          aria-label={`Select ${document.fileName}`}
-                        />
-                      </TableCell>
-                      <TableCell className="max-w-xs">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenDetails(document)}
-                          disabled={document.processingStatus === "processing"}
-                          className="block max-w-full truncate text-left font-medium text-foreground hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {document.title || document.fileName}
-                        </button>
-                        {document.processingStatus === "processing" ? (
-                          <p className="mt-0.5 text-xs text-amber-700">
-                            OCR & AI in queue…
-                          </p>
-                        ) : (
-                          document.title &&
-                          document.fileName !== document.title && (
-                            <p className="mt-0.5 truncate text-xs text-secondary">
-                              {document.fileName}
-                            </p>
-                          )
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={document.processingStatus} />
-                      </TableCell>
-                      <TableCell className="text-secondary">
-                        {document.category?.name ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-secondary tabular-nums">
-                        {formattedDate}
-                      </TableCell>
-                      <TableCell align="right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenDetails(document)}
-                            disabled={document.processingStatus === "processing"}
-                            className="rounded bg-[var(--color-bg-tertiary)] px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-[var(--color-bg-secondary)] disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {document.processingStatus === "processing"
-                              ? "Analyzing"
-                              : "Review"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteSingle(document)}
-                            disabled={deleteDocument.isLoading}
-                            className="rounded p-2 text-red-600 transition hover:bg-red-50 disabled:opacity-50"
-                            aria-label="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          <p className="text-center text-xs text-secondary">
-            Need everything filed?{" "}
-            <Link
-              href="/dashboard/documents"
-              className="font-medium text-primary hover:underline"
-            >
-              View all documents
-            </Link>
-          </p>
+          <DataTable<Document>
+            data={sortedDocuments}
+            columns={columns}
+            isLoading={isLoading}
+            emptyMessage="No documents found in tray."
+            searchable={true}
+            searchPlaceholder="Search tray documents..."
+            searchFields={["title", "fileName", "category.name", "processingStatus"]}
+            filters={unsortedFilters}
+            sortSlot={<SortBar sortBy={sortBy} onChange={setSortBy} />}
+            paginated={true}
+            pageSize={10}
+            pageSizeOptions={[10, 25, 50]}
+            keyExtractor={(doc) => doc.id}
+            rowClassName={(doc) => (selectedIds.has(doc.id) ? "bg-primary/5" : "")}
+            footerSlot={
+              <p className="pt-2 text-center text-xs text-secondary">
+                Need everything filed?{" "}
+                <Link
+                  href="/dashboard/documents"
+                  className="font-medium text-primary hover:underline"
+                >
+                  View all documents
+                </Link>
+              </p>
+            }
+          />
         </>
       )}
 

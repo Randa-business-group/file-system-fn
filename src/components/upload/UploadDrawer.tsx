@@ -3,21 +3,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { toast } from "sonner";
-import { DropZone } from "./DropZone";
+import { DropZone, type DropResult } from "./DropZone";
 import { ProcessingState } from "./ProcessingState";
 import { ConfirmDocumentForm } from "./ConfirmDocumentForm";
 import { BulkUploadDrawer } from "./BulkUploadDrawer";
-import { FolderUploadDrawer } from "./FolderUploadDrawer";
+import { FolderUploadDrawer, type ScannedItem } from "./FolderUploadDrawer";
 import { ModeSelector } from "./ModeSelector";
 import {
   useConfirmDocument,
   useCreateDocument,
   useProcessDocument,
 } from "@/lib/hooks/useDocuments";
+import { useGetRootFolders } from "@/lib/hooks/useFolders";
 import { useDashboard } from "@/lib/dashboard-context";
 import { uploadApi } from "@/api/upload.api";
 import { extractTextFromFile } from "@/lib/extract-text";
-import { getUploadFileKind } from "@/lib/upload-file-types";
 import type { ProcessDocumentResult, UploadProcessingMode } from "@/types/document";
 import type {
   ConfirmDocumentFormData,
@@ -25,7 +25,7 @@ import type {
 } from "@/types/schema/document.schema";
 
 type UploadState = "IDLE" | "SELECTING_MODE" | "PROCESSING" | "CONFIRM" | "SUCCESS";
-type UploadMode = "single" | "multiple" | "folder";
+type UploadMode = "idle" | "single" | "multiple" | "folder";
 
 interface UploadDrawerProps {
   isOpen: boolean;
@@ -46,27 +46,26 @@ function emptyManualDefaults(fileName: string): ProcessDocumentResult {
 }
 
 export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: UploadDrawerProps) {
-  const { uploadFolderId, uploadInitialTab } = useDashboard();
-  const [mode, setMode] = useState<UploadMode>(uploadInitialTab ?? "single");
+  const { uploadFolderId } = useDashboard();
+  const [mode, setMode] = useState<UploadMode>("idle");
   const [state, setState] = useState<UploadState>("IDLE");
   const [processingMode, setProcessingMode] = useState<UploadProcessingMode>("ai");
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [bulkFiles, setBulkFiles] = useState<File[]>([]);
+  const [folderItems, setFolderItems] = useState<ScannedItem[]>([]);
+  const [portalKey, setPortalKey] = useState(0);
   const [extractedText, setExtractedText] = useState("");
   const [aiResult, setAiResult] = useState<ProcessDocumentResult | null>(null);
 
-  const prevIsOpenRef = useRef(isOpen);
-  useEffect(() => {
-    if (isOpen && !prevIsOpenRef.current) {
-      setMode(uploadInitialTab ?? "single");
-    }
-    prevIsOpenRef.current = isOpen;
-  }, [isOpen, uploadInitialTab]);
+  const effectiveFolderId = propFolderId ?? uploadFolderId;
+  const { folders } = useGetRootFolders();
+  const currentFolder = folders.find((f) => f.id === effectiveFolderId);
+  const targetFolderName = currentFolder?.name ?? null;
 
   const processDocument = useProcessDocument();
   const createDocument = useCreateDocument();
   const confirmDocument = useConfirmDocument();
-  const effectiveFolderId = propFolderId ?? uploadFolderId;
 
   const resetUploadState = useCallback(() => {
     setState("IDLE");
@@ -76,6 +75,39 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
     setExtractedText("");
     setAiResult(null);
   }, []);
+
+  const handleResetToPortal = useCallback(() => {
+    setMode("idle");
+    resetUploadState();
+    setBulkFiles([]);
+    setFolderItems([]);
+    setPortalKey((k) => k + 1);
+  }, [resetUploadState]);
+
+  const prevIsOpenRef = useRef(isOpen);
+  useEffect(() => {
+    if (isOpen && !prevIsOpenRef.current) {
+      handleResetToPortal();
+    }
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, handleResetToPortal]);
+
+  const handleItemsSelected = useCallback(
+    (result: DropResult) => {
+      if (result.type === "folder" && result.folderItems) {
+        setFolderItems(result.folderItems);
+        setMode("folder");
+      } else if (result.type === "multiple" && result.files) {
+        setBulkFiles(result.files);
+        setMode("multiple");
+      } else if (result.type === "single" && result.file) {
+        setSelectedFile(result.file);
+        setMode("single");
+        setState("SELECTING_MODE");
+      }
+    },
+    [],
+  );
 
   const handleProcessFile = async (file: File) => {
     setState("PROCESSING");
@@ -92,19 +124,9 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
     } catch (error) {
       console.error("Processing error:", error);
       toast.error("Failed to process document. Please try again.");
-      resetUploadState();
+      handleResetToPortal();
     }
   };
-
-  const handleFileSelected = useCallback((file: File | null) => {
-    if (!file) {
-      resetUploadState();
-      return;
-    }
-
-    setSelectedFile(file);
-    setState("SELECTING_MODE");
-  }, [resetUploadState]);
 
   const handleModeSelect = (nextMode: UploadProcessingMode) => {
     if (!selectedFile) return;
@@ -196,7 +218,7 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
 
       setTimeout(() => {
         onClose();
-        resetUploadState();
+        handleResetToPortal();
       }, 1500);
     } catch (error) {
       console.error("Upload error:", error);
@@ -218,18 +240,6 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
     };
   }, [selectedFileUrl]);
 
-  const handleCancel = () => {
-    resetUploadState();
-  };
-
-  const handleChangeFile = () => {
-    resetUploadState();
-  };
-
-  const handleModeChange = (newMode: UploadMode) => {
-    setMode(newMode);
-  };
-
   if (!isOpen) return null;
 
   const confirmDefaults =
@@ -238,195 +248,208 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black bg-opacity-50" />
+      <div
+        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity"
+        onClick={onClose}
+      />
 
-      <div className="fixed right-0 top-0 z-50 h-screen w-full max-w-3xl overflow-y-auto bg-surface shadow-xl">
-        <div className="sticky top-0 flex items-center justify-between border-b border-default bg-surface px-6 py-4">
-          <div>
+      <div className="fixed right-0 top-0 z-50 h-screen w-full max-w-3xl overflow-y-auto bg-surface shadow-2xl">
+        {/* Unified Portal Header - NO TABS */}
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-default bg-surface px-6 py-4">
+          <div className="min-w-0">
             <h2 className="text-lg font-semibold text-foreground">
               {mode === "folder"
                 ? "Upload Folder"
                 : mode === "multiple"
                 ? "Bulk Upload Files"
-                : "Upload Document"}
+                : mode === "single"
+                ? "Upload Document"
+                : "Upload"}
             </h2>
-            <div className="mt-2 flex items-center gap-2 rounded-2xl bg-[var(--color-bg-secondary)] p-1">
-              <button
-                type="button"
-                onClick={() => handleModeChange("single")}
-                className={`rounded px-3 py-1 text-sm font-semibold transition ${
-                  mode === "single"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-secondary hover:bg-[var(--color-bg-tertiary)]"
-                }`}
-              >
-                Single File
-              </button>
-              <button
-                type="button"
-                onClick={() => handleModeChange("multiple")}
-                className={`rounded px-3 py-1 text-sm font-semibold transition ${
-                  mode === "multiple"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-secondary hover:bg-[var(--color-bg-tertiary)]"
-                }`}
-              >
-                Multiple Files
-              </button>
-              <button
-                type="button"
-                onClick={() => handleModeChange("folder")}
-                className={`rounded px-3 py-1 text-sm font-semibold transition ${
-                  mode === "folder"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-secondary hover:bg-[var(--color-bg-tertiary)]"
-                }`}
-              >
-                Upload Folder
-              </button>
-            </div>
+            <p className="mt-0.5 truncate text-xs text-secondary">
+              {mode === "folder"
+                ? "Preserve your folder structure and upload all documents"
+                : mode === "multiple"
+                ? "Review files and upload to workspace"
+                : mode === "single"
+                ? "Review and confirm document details"
+                : "Upload single files, multiple files, or entire folders to your workspace"}
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded p-2 hover:bg-[var(--color-bg-secondary)]"
-          >
-            <X className="h-5 w-5" />
-          </button>
+
+          <div className="flex items-center gap-2">
+            {mode !== "idle" && (
+              <button
+                type="button"
+                onClick={handleResetToPortal}
+                className="rounded-lg border border-default bg-surface px-3 py-1.5 text-xs font-semibold text-secondary transition hover:bg-[var(--color-bg-secondary)] hover:text-foreground"
+              >
+                Change files
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded p-2 text-secondary hover:bg-[var(--color-bg-secondary)] hover:text-foreground"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <div className="space-y-6 p-6">
-          {mode === "folder" ? (
-            <FolderUploadDrawer
-              embedded
-              parentFolderId={effectiveFolderId}
-              onClose={() => {
-                handleModeChange("single");
-                onClose();
-              }}
-            />
-          ) : null}
-
-          {mode === "multiple" ? (
-            <BulkUploadDrawer
-              embedded
-              onClose={() => {
-                handleModeChange("single");
-                onClose();
-              }}
-            />
-          ) : null}
-
-          {state === "IDLE" && mode === "single" ? (
+          {/* 1. IDLE: One Unified Portal */}
+          {mode === "idle" && (
             <div className="space-y-4">
-              <p className="text-sm text-secondary">
-                Upload a PDF, Word, Excel, CSV, or image file. Choose AI analysis or save manually.
-              </p>
-              <DropZone onFileSelected={handleFileSelected} selectedFile={selectedFile} />
-            </div>
-          ) : null}
-
-          {state === "SELECTING_MODE" && selectedFile && mode === "single" ? (
-            <ModeSelector
-              fileName={selectedFile.name}
-              fileType={selectedFile.type}
-              onSelect={handleModeSelect}
-              onBack={handleChangeFile}
-            />
-          ) : null}
-
-          {state === "PROCESSING" && mode === "single" ? (
-            <div>
-              <p className="mb-6 text-sm text-secondary">
-                Please wait while we process your document...
-              </p>
-              <ProcessingState
-                currentStep={currentStep}
-                isComplete={currentStep > 2}
-                fileType={selectedFile?.type ?? ""}
-                fileName={selectedFile?.name}
+              <DropZone
+                onItemsSelected={handleItemsSelected}
+                targetFolderName={targetFolderName}
               />
             </div>
-          ) : null}
+          )}
 
-          {state === "CONFIRM" && confirmDefaults && mode === "single" ? (
-            <div className="space-y-6">
-              <div className="rounded border border-default bg-surface p-4">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">Selected file</p>
-                    <p className="truncate text-sm text-secondary">{selectedFile?.name}</p>
-                    <p className="text-xs text-secondary">
-                      {selectedFile
-                        ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`
-                        : "No file selected"}
-                    </p>
+          {/* 2. FOLDER: System automatically adjusted to folder upload */}
+          {mode === "folder" && (
+            <FolderUploadDrawer
+              key={portalKey}
+              embedded
+              parentFolderId={effectiveFolderId}
+              initialItems={folderItems}
+              onReset={handleResetToPortal}
+              onClose={() => {
+                handleResetToPortal();
+                onClose();
+              }}
+            />
+          )}
+
+          {/* 3. MULTIPLE FILES: System automatically adjusted to multiple files upload */}
+          {mode === "multiple" && (
+            <BulkUploadDrawer
+              key={portalKey}
+              embedded
+              initialFiles={bulkFiles}
+              onReset={handleResetToPortal}
+              onClose={() => {
+                handleResetToPortal();
+                onClose();
+              }}
+            />
+          )}
+
+          {/* 4. SINGLE FILE: System automatically adjusted to single file upload */}
+          {mode === "single" && (
+            <>
+              {state === "SELECTING_MODE" && selectedFile && (
+                <ModeSelector
+                  fileName={selectedFile.name}
+                  fileType={selectedFile.type}
+                  onSelect={handleModeSelect}
+                  onBack={handleResetToPortal}
+                />
+              )}
+
+              {state === "PROCESSING" && (
+                <div>
+                  <p className="mb-6 text-sm text-secondary">
+                    Please wait while we process your document...
+                  </p>
+                  <ProcessingState
+                    currentStep={currentStep}
+                    isComplete={currentStep > 2}
+                    fileType={selectedFile?.type ?? ""}
+                    fileName={selectedFile?.name}
+                  />
+                </div>
+              )}
+
+              {state === "CONFIRM" && confirmDefaults && (
+                <div className="space-y-6">
+                  <div className="rounded-xl border border-default bg-surface p-4 shadow-sm">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-secondary">
+                          Selected file
+                        </p>
+                        <p className="truncate text-sm font-semibold text-foreground mt-0.5">
+                          {selectedFile?.name}
+                        </p>
+                        <p className="text-xs text-secondary mt-0.5">
+                          {selectedFile
+                            ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`
+                            : "No file selected"}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {selectedFileUrl ? (
+                          <a
+                            href={selectedFileUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex rounded-lg border border-default bg-surface px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-[var(--color-bg-secondary)]"
+                          >
+                            Preview
+                          </a>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={handleResetToPortal}
+                          className="inline-flex rounded-lg border border-default bg-surface px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-[var(--color-bg-secondary)]"
+                        >
+                          Change file
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    {selectedFileUrl ? (
-                      <a
-                        href={selectedFileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex rounded border border-default bg-surface px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-[var(--color-bg-secondary)]"
-                      >
-                        Preview
-                      </a>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={handleChangeFile}
-                      className="inline-flex rounded border border-default bg-surface px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-[var(--color-bg-secondary)]"
-                    >
-                      Change file
-                    </button>
+                  <div>
+                    <p className="mb-6 text-sm text-secondary">
+                      {processingMode === "manual"
+                        ? "Enter a title and choose a folder to save this document."
+                        : "Please review and edit the extracted information below:"}
+                    </p>
+                    <ConfirmDocumentForm
+                      mode={processingMode}
+                      defaultValues={confirmDefaults}
+                      defaultFolderId={effectiveFolderId}
+                      onConfirm={handleConfirmDocument}
+                      onCancel={handleResetToPortal}
+                      isLoading={createDocument.isLoading || confirmDocument.isLoading}
+                    />
                   </div>
                 </div>
-              </div>
+              )}
 
-              <div>
-                <p className="mb-6 text-sm text-secondary">
-                  {processingMode === "manual"
-                    ? "Enter a title and choose a folder to save this document."
-                    : "Please review and edit the extracted information below:"}
-                </p>
-                <ConfirmDocumentForm
-                  mode={processingMode}
-                  defaultValues={confirmDefaults}
-                  defaultFolderId={effectiveFolderId}
-                  onConfirm={handleConfirmDocument}
-                  onCancel={handleCancel}
-                  isLoading={createDocument.isLoading || confirmDocument.isLoading}
-                />
-              </div>
-            </div>
-          ) : null}
-
-          {state === "SUCCESS" && mode === "single" ? (
-            <div className="space-y-4 py-8 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded bg-green-100">
-                <svg
-                  className="h-6 w-6 text-green-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-foreground">Upload Complete</h3>
-              <p className="text-sm text-secondary">
-                Your document has been successfully uploaded
-                {processingMode === "manual" ? "." : " and categorized."}
-              </p>
-            </div>
-          ) : null}
+              {state === "SUCCESS" && (
+                <div className="space-y-4 py-12 text-center">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-green-100 text-green-600">
+                    <svg
+                      className="h-7 w-7"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground">
+                    Upload Complete
+                  </h3>
+                  <p className="text-sm text-secondary">
+                    Your document has been successfully uploaded
+                    {processingMode === "manual" ? "." : " and categorized."}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </>

@@ -722,9 +722,9 @@ export function Sidebar({
                     {user?.organizationName ?? "No organization"}
                   </p>
                 </div>
-                <span className="shrink-0 rounded-md bg-primary-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                {/* <span className="shrink-0 rounded-md bg-primary-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
                   {role}
-                </span>
+                </span> */}
               </>
             )}
           </div>

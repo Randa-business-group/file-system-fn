@@ -31,16 +31,19 @@ interface FolderUploadDrawerProps {
   onClose?: () => void;
   embedded?: boolean;
   parentFolderId?: string | null;
+  initialItems?: ScannedItem[];
+  onReset?: () => void;
 }
 
-interface ScannedItem {
+export interface ScannedItem {
   file: File;
   relativePath: string;
 }
 
-function shouldIgnoreFile(fileName: string): boolean {
+export function shouldIgnoreFile(fileName: string): boolean {
   if (fileName.startsWith(".")) return true;
   if (fileName === "Thumbs.db" || fileName === "desktop.ini") return true;
+  if (fileName.startsWith("~$")) return true;
   return false;
 }
 
@@ -66,7 +69,7 @@ async function readAllDirectoryEntries(
   return readBatch();
 }
 
-async function scanFileSystemEntry(
+export async function scanFileSystemEntry(
   entry: FileSystemEntry,
   currentPath = "",
 ): Promise<ScannedItem[]> {
@@ -113,12 +116,30 @@ export function FolderUploadDrawer({
   onClose = () => undefined,
   embedded = false,
   parentFolderId,
+  initialItems,
+  onReset,
 }: FolderUploadDrawerProps) {
   const router = useRouter();
   const folderInputRef = useRef<HTMLInputElement>(null);
 
-  const [files, setFiles] = useState<FolderUploadFileItem[]>([]);
-  const [rootFolderName, setRootFolderName] = useState("");
+  const [files, setFiles] = useState<FolderUploadFileItem[]>(() => {
+    if (!initialItems || initialItems.length === 0) return [];
+    return initialItems
+      .filter((item) => isSupportedUploadFile(item.file) && item.file.size <= MAX_FILE_SIZE)
+      .map((item) => ({
+        file: item.file,
+        relativePath: item.relativePath,
+        fileName: item.file.name,
+        size: item.file.size,
+        mode: "ai" as const,
+        status: "pending" as const,
+      }));
+  });
+  const [rootFolderName, setRootFolderName] = useState<string>(() => {
+    if (!initialItems || initialItems.length === 0) return "";
+    const firstRel = initialItems[0].relativePath;
+    return firstRel.includes("/") ? firstRel.split("/")[0] : "Uploaded Folder";
+  });
   const [isScanning, setIsScanning] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadFolderResult | null>(null);
@@ -365,7 +386,6 @@ export function FolderUploadDrawer({
   const canClose = !isUploading && !isScanning;
   const showProgress = isUploading || uploadResult !== null;
   const queuedCount = files.filter((f) => f.status === "queued").length;
-  const doneCount = files.filter((f) => f.status === "done").length;
 
   const content = (
     <div className="space-y-6">
@@ -413,9 +433,20 @@ export function FolderUploadDrawer({
         <div className="space-y-5">
           {/* Root Folder Name input */}
           <div className="rounded-xl border border-default bg-surface p-4 shadow-sm">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-secondary">
-              Root Folder Name
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-secondary">
+                Root Folder Name
+              </label>
+              {onReset && (
+                <button
+                  type="button"
+                  onClick={onReset}
+                  className="text-xs font-semibold text-primary transition hover:underline"
+                >
+                  Change folder
+                </button>
+              )}
+            </div>
             <div className="mt-1.5 flex items-center gap-2">
               <Folder className="h-4 w-4 text-primary shrink-0" />
               <input
