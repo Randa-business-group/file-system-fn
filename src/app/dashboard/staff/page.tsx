@@ -1,3 +1,15 @@
+"use client";
+
+import {
+  TableContainer,
+  Table,
+  TableHeader,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+} from "@/components/ui/Table";
+
 const staffRows = [
   { name: "Alice Uwimana", role: "Manager", status: "Active" },
   { name: "Eric Niyonzima", role: "Supervisor", status: "Active" },
@@ -12,26 +24,26 @@ export default function DashboardStaffPage() {
         <p className="text-sm text-secondary">Manage your team members and roles.</p>
       </header>
 
-      <section className="surface overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-[var(--color-bg-secondary)] text-secondary">
+      <TableContainer>
+        <Table>
+          <TableHeader>
             <tr>
-              <th className="px-4 py-3 font-medium">Name</th>
-              <th className="px-4 py-3 font-medium">Role</th>
-              <th className="px-4 py-3 font-medium">Status</th>
+              <TableHead>Name</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Status</TableHead>
             </tr>
-          </thead>
-          <tbody>
+          </TableHeader>
+          <TableBody>
             {staffRows.map((row) => (
-              <tr key={row.name} className="border-t border-default">
-                <td className="px-4 py-3 text-foreground">{row.name}</td>
-                <td className="px-4 py-3 text-secondary">{row.role}</td>
-                <td className="px-4 py-3 text-secondary">{row.status}</td>
-              </tr>
+              <TableRow key={row.name}>
+                <TableCell className="font-medium text-foreground">{row.name}</TableCell>
+                <TableCell className="text-secondary">{row.role}</TableCell>
+                <TableCell className="text-secondary">{row.status}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </section>
+          </TableBody>
+        </Table>
+      </TableContainer>
     </div>
   );
 }

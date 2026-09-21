@@ -31,6 +31,8 @@ interface BulkUploadDrawerProps {
   isOpen?: boolean;
   onClose?: () => void;
   embedded?: boolean;
+  initialFiles?: File[];
+  onReset?: () => void;
 }
 
 function FileTypeIcon({ file }: { file: BulkUploadFile }) {
@@ -59,8 +61,23 @@ export function BulkUploadDrawer({
   isOpen = true,
   onClose = () => undefined,
   embedded = false,
+  initialFiles,
+  onReset,
 }: BulkUploadDrawerProps) {
-  const [files, setFiles] = useState<BulkUploadFile[]>([]);
+  const [files, setFiles] = useState<BulkUploadFile[]>(() => {
+    if (!initialFiles || initialFiles.length === 0) return [];
+    return initialFiles
+      .filter((file) => isSupportedUploadFile(file) && file.size <= MAX_FILE_SIZE)
+      .map((file) => ({
+        file,
+        fileName: file.name,
+        preview: URL.createObjectURL(file),
+        size: file.size,
+        fileType: getUploadFileKind(file),
+        mode: "ai" as const,
+        status: "pending" as const,
+      }));
+  });
   const [isUploading, setIsUploading] = useState(false);
   const [allComplete, setAllComplete] = useState(false);
   const bulkUpload = useBulkUpload();
@@ -280,9 +297,20 @@ export function BulkUploadDrawer({
 
             {files.length > 0 && (
               <div className="space-y-3">
-                <p className="text-sm font-medium text-foreground">
-                  {files.length} file{files.length !== 1 ? "s" : ""} selected
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-foreground">
+                    {files.length} file{files.length !== 1 ? "s" : ""} selected
+                  </p>
+                  {onReset && (
+                    <button
+                      type="button"
+                      onClick={onReset}
+                      className="text-xs font-semibold text-primary transition hover:underline"
+                    >
+                      Change files
+                    </button>
+                  )}
+                </div>
                 {files.map((file, index) => (
                   <div
                     key={`${file.fileName}-${index}`}

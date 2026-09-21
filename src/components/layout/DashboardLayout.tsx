@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { UploadDrawer } from "@/components/upload/UploadDrawer";
@@ -83,6 +84,16 @@ export function DashboardLayout({
           {children}
         </main>
       </div>
+
+      <button
+        type="button"
+        onClick={() => openUpload()}
+        aria-label="Upload files or folder"
+        title="Upload"
+        className="fixed bottom-6 right-6 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-200 hover:scale-105 hover:bg-primary-hover hover:shadow-xl active:scale-95 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 sm:bottom-8 sm:right-8"
+      >
+        <Plus className="h-6 w-6" strokeWidth={2.5} />
+      </button>
 
       <UploadDrawer
         isOpen={isUploadOpen}

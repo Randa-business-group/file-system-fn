@@ -2,12 +2,16 @@
 
 import { createContext, useContext, ReactNode, useState } from "react";
 
+export type UploadDrawerTab = "single" | "multiple" | "folder";
+
 interface DashboardContextType {
   isUploadOpen: boolean;
   uploadFolderId: string | null;
-  openUpload: (folderId?: string | null) => void;
+  uploadInitialTab: UploadDrawerTab;
+  openUpload: (folderId?: string | null, tab?: UploadDrawerTab) => void;
   closeUpload: () => void;
   setUploadFolderId: (folderId: string | null) => void;
+  setUploadInitialTab: (tab: UploadDrawerTab) => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -15,21 +19,26 @@ const DashboardContext = createContext<DashboardContextType | undefined>(undefin
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [uploadFolderId, setUploadFolderId] = useState<string | null>(null);
+  const [uploadInitialTab, setUploadInitialTab] = useState<UploadDrawerTab>("single");
 
   return (
     <DashboardContext.Provider
       value={{
         isUploadOpen,
         uploadFolderId,
-        openUpload: (folderId?: string | null) => {
+        uploadInitialTab,
+        openUpload: (folderId?: string | null, tab?: UploadDrawerTab) => {
           setUploadFolderId(folderId ?? null);
+          setUploadInitialTab(tab ?? "single");
           setIsUploadOpen(true);
         },
         closeUpload: () => {
           setIsUploadOpen(false);
           setUploadFolderId(null);
+          setUploadInitialTab("single");
         },
         setUploadFolderId,
+        setUploadInitialTab,
       }}
     >
       {children}

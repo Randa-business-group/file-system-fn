@@ -43,7 +43,7 @@ export const tokenStorage = {
 
 export const httpClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 15000,
+  timeout: 5000000,
   headers: {
     "Content-Type": "application/json",
   },

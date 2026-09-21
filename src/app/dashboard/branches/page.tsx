@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { GitBranch, MoreVertical, Pencil, Plus, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -12,16 +12,17 @@ import {
   useInviteBranchManager,
   useUpdateBranch,
 } from "@/lib/hooks/useBranches";
-import { BranchRow } from "@/components/branches/BranchRow";
 import { CreateBranchModal } from "@/components/branches/CreateBranchModal";
 import { EditBranchModal } from "@/components/branches/EditBranchModal";
 import { InviteBranchManagerModal } from "@/components/branches/InviteBranchManagerModal";
 import { OrgPageHeader } from "@/components/org/OrgPageHeader";
+import { DataTable, type ColumnDef, type TableFilter } from "@/components/table/page";
 import {
-  OrgTableHead,
-  OrgTableShell,
-  OrgTableTh,
-} from "@/components/org/OrgTableShell";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
@@ -50,15 +51,6 @@ export default function DashboardBranchesPage() {
     }
   }, [isLoading, isOwner, router, user]);
 
-  if (isLoading || !user || !isOwner) {
-    return (
-      <div className="space-y-6 p-6">
-        <LoadingSkeleton width={280} height={32} />
-        <LoadingSkeleton height={280} rounded="1rem" />
-      </div>
-    );
-  }
-
   const newBranchButton = (
     <button
       type="button"
@@ -69,6 +61,166 @@ export default function DashboardBranchesPage() {
       New Branch
     </button>
   );
+
+  const columns: ColumnDef<Branch>[] = useMemo(
+    () => [
+      {
+        id: "name",
+        accessorKey: "name",
+        header: "Name",
+        sortable: true,
+        cell: ({ row }) => (
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-subtle text-primary">
+              <GitBranch className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-foreground group-hover:text-primary">
+                {row.name}
+              </p>
+              <p className="mt-0.5 truncate text-xs text-muted">/{row.slug}</p>
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: "departmentCount",
+        accessorKey: "departmentCount",
+        header: "Departments",
+        sortable: true,
+        cell: ({ row }) => (
+          <span className="tabular-nums text-secondary">
+            {row.departmentCount ?? 0}
+          </span>
+        ),
+      },
+      {
+        id: "memberCount",
+        accessorKey: "memberCount",
+        header: "Members",
+        sortable: true,
+        cell: ({ row }) => (
+          <span className="tabular-nums text-secondary">
+            {row.memberCount ?? 0}
+          </span>
+        ),
+      },
+      {
+        id: "manager",
+        accessorKey: "manager.name",
+        header: "Manager",
+        sortable: true,
+        cell: ({ row }) => (
+          <span className="text-sm text-foreground">
+            {row.manager?.name ?? (
+              <span className="text-muted">Not assigned</span>
+            )}
+          </span>
+        ),
+      },
+      {
+        id: "createdAt",
+        accessorKey: "createdAt",
+        header: "Created",
+        sortable: true,
+        cell: ({ row }) => (
+          <span className="text-secondary">
+            {new Date(row.createdAt).toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </span>
+        ),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        align: "right",
+        cell: ({ row }) => (
+          <div
+            className="flex items-center justify-end"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="inline-flex rounded-lg p-2 text-muted transition hover:bg-[var(--color-bg-secondary)] hover:text-foreground"
+                ariaLabel={`Actions for ${row.name}`}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[200px]">
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedBranch(row);
+                    setIsEditOpen(true);
+                  }}
+                  disabled={isBusy}
+                  className="flex items-center gap-2"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedBranch(row);
+                    setIsInviteOpen(true);
+                  }}
+                  disabled={isBusy}
+                  className="flex items-center gap-2"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Invite manager
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedBranch(row);
+                    setIsDeleteOpen(true);
+                  }}
+                  disabled={isBusy}
+                  className="flex items-center gap-2 text-red-600 focus:text-red-600 focus:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        ),
+      },
+    ],
+    [isBusy],
+  );
+
+  const filters: TableFilter<Branch>[] = useMemo(
+    () => [
+      {
+        id: "managerStatus",
+        label: "Manager",
+        placeholder: "All Branches",
+        options: [
+          { value: "", label: "All Branches" },
+          { value: "assigned", label: "Has Manager" },
+          { value: "unassigned", label: "No Manager" },
+        ],
+        filterFn: (branch, val) => {
+          if (val === "assigned") return Boolean(branch.manager);
+          if (val === "unassigned") return !branch.manager;
+          return true;
+        },
+      },
+    ],
+    [],
+  );
+
+  if (isLoading || !user || !isOwner) {
+    return (
+      <div className="space-y-6 p-6">
+        <LoadingSkeleton width={280} height={32} />
+        <LoadingSkeleton height={280} rounded="1rem" />
+      </div>
+    );
+  }
 
   if (isError) {
     return (
@@ -87,42 +239,6 @@ export default function DashboardBranchesPage() {
     );
   }
 
-  if (!isBranchesLoading && branches.length === 0) {
-    return (
-      <div className="space-y-6 p-6">
-        <OrgPageHeader
-          title="Branches"
-          description="Organize your organization into branches and assign branch managers."
-          action={newBranchButton}
-        />
-        <EmptyState
-          title="No branches yet"
-          description="Create your first branch to structure departments and members."
-          actionLabel="New Branch"
-          onAction={() => setIsCreateOpen(true)}
-        />
-        <CreateBranchModal
-          isOpen={isCreateOpen}
-          onClose={() => setIsCreateOpen(false)}
-          onConfirm={(name) => {
-            createBranch(
-              { name },
-              {
-                onSuccess: () => toast.success("Branch created successfully"),
-                onError: (error) => {
-                  toast.error(
-                    error instanceof Error ? error.message : "Unable to create branch.",
-                  );
-                },
-              },
-            );
-          }}
-          isSubmitting={isCreating}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 p-6">
       <OrgPageHeader
@@ -131,47 +247,19 @@ export default function DashboardBranchesPage() {
         action={newBranchButton}
       />
 
-      <OrgTableShell>
-        <table className="w-full min-w-[720px] text-sm">
-          <OrgTableHead>
-            <OrgTableTh>Name</OrgTableTh>
-            <OrgTableTh>Departments</OrgTableTh>
-            <OrgTableTh>Members</OrgTableTh>
-            <OrgTableTh>Manager</OrgTableTh>
-            <OrgTableTh>Created</OrgTableTh>
-            <OrgTableTh align="right">Actions</OrgTableTh>
-          </OrgTableHead>
-          <tbody>
-            {isBranchesLoading
-              ? [...Array(4)].map((_, index) => (
-                  <tr key={index} className="border-t border-default">
-                    <td colSpan={6} className="px-5 py-4">
-                      <LoadingSkeleton height={40} rounded="0.5rem" />
-                    </td>
-                  </tr>
-                ))
-              : branches.map((branch) => (
-                  <BranchRow
-                    key={branch.id}
-                    branch={branch}
-                    onEdit={() => {
-                      setSelectedBranch(branch);
-                      setIsEditOpen(true);
-                    }}
-                    onInviteManager={() => {
-                      setSelectedBranch(branch);
-                      setIsInviteOpen(true);
-                    }}
-                    onDelete={() => {
-                      setSelectedBranch(branch);
-                      setIsDeleteOpen(true);
-                    }}
-                    isBusy={isBusy}
-                  />
-                ))}
-          </tbody>
-        </table>
-      </OrgTableShell>
+      <DataTable<Branch>
+        data={branches}
+        columns={columns}
+        isLoading={isBranchesLoading}
+        emptyMessage="No branches found."
+        searchable={true}
+        searchPlaceholder="Search branches..."
+        filters={filters}
+        paginated={true}
+        pageSize={10}
+        pageSizeOptions={[10, 20, 50]}
+        onRowClick={(branch) => router.push(`/dashboard/branches/${branch.slug}`)}
+      />
 
       <CreateBranchModal
         isOpen={isCreateOpen}

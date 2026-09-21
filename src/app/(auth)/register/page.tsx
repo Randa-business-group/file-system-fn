@@ -7,7 +7,11 @@ import { ApiError } from "@/api/api-client";
 import { RegisterFormPanel } from "@/components/auth/RegisterFormPanel";
 import { useAuth } from "@/lib/auth-context";
 import type { RegisterErrors, RegisterFormValues } from "@/types/register";
-import { validateRegisterForm } from "@/types/schema/register.schema";
+import {
+  validateOrganizationStep,
+  validateRegisterField,
+  validateRegisterForm,
+} from "@/types/schema/register.schema";
 import { VisualPanel } from "@/components/auth/Visualpanel";
 import { OrganizationType } from "@/types/enum";
 
@@ -27,6 +31,9 @@ export default function RegisterPage() {
 
   const [values, setValues] = useState<RegisterFormValues>(defaultValues);
   const [errors, setErrors] = useState<RegisterErrors>({});
+  const [touched, setTouched] = useState<
+    Partial<Record<keyof RegisterFormValues, boolean>>
+  >({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
 
@@ -39,51 +46,75 @@ export default function RegisterPage() {
     key: K,
     value: RegisterFormValues[K],
   ) => {
-    setValues((previous) => {
-      const nextValues = { ...previous, [key]: value };
+    const nextValues: RegisterFormValues = { ...values, [key]: value };
 
-      if (key === "organizationType" && value === OrganizationType.INDIVIDUAL) {
-        nextValues.organizationEmail = "";
-      }
+    if (key === "organizationType" && value === OrganizationType.INDIVIDUAL) {
+      nextValues.organizationEmail = "";
+    }
 
-      return nextValues;
-    });
+    setValues(nextValues);
+    setTouched((prev) => ({ ...prev, [key]: true }));
 
+    // Real-time validation displayed on type
     setErrors((previous) => {
-      const nextErrors = { ...previous, [key]: undefined };
-      if (key === "organizationType" && value === OrganizationType.INDIVIDUAL) {
-        nextErrors.organizationEmail = undefined;
+      const nextErrors = { ...previous };
+
+      // Validate the field being edited
+      const fieldError = validateRegisterField(key, value, nextValues);
+      nextErrors[key] = fieldError;
+
+      // Handle organization type switch
+      if (key === "organizationType") {
+        if (value === OrganizationType.INDIVIDUAL) {
+          nextErrors.organizationEmail = undefined;
+        } else if (touched.organizationEmail || nextValues.organizationEmail) {
+          nextErrors.organizationEmail = validateRegisterField(
+            "organizationEmail",
+            nextValues.organizationEmail,
+            nextValues,
+          );
+        }
       }
+
+      // Re-validate confirmPassword in real-time when password changes
+      if (
+        key === "password" &&
+        (touched.confirmPassword || nextValues.confirmPassword)
+      ) {
+        nextErrors.confirmPassword = validateRegisterField(
+          "confirmPassword",
+          nextValues.confirmPassword,
+          nextValues,
+        );
+      }
+
       return nextErrors;
     });
   };
 
-  const getStepErrors = (
-    step: 1 | 2,
-    validationErrors: RegisterErrors,
-  ): RegisterErrors => {
-    if (step === 1) {
-      return {
-        organizationName: validationErrors.organizationName,
-        organizationType: validationErrors.organizationType,
-        organizationEmail: validationErrors.organizationEmail,
-      };
-    }
-
-    return {
-      fullName: validationErrors.fullName,
-      adminEmail: validationErrors.adminEmail,
-      password: validationErrors.password,
-      confirmPassword: validationErrors.confirmPassword,
-    };
+  const handleBlur = (key: keyof RegisterFormValues) => {
+    setTouched((prev) => ({ ...prev, [key]: true }));
+    setErrors((previous) => {
+      const error = validateRegisterField(key, values[key], values);
+      return { ...previous, [key]: error };
+    });
   };
 
   const handleNextStep = () => {
-    const validationErrors = validateRegisterForm(values);
-    const stepErrors = getStepErrors(1, validationErrors);
+    setTouched((prev) => ({
+      ...prev,
+      organizationName: true,
+      organizationType: true,
+      organizationEmail:
+        values.organizationType === OrganizationType.COMPANY
+          ? true
+          : prev.organizationEmail,
+    }));
+
+    const stepErrors = validateOrganizationStep(values);
     setErrors((previous) => ({ ...previous, ...stepErrors }));
 
-    if (Object.values(stepErrors).some(Boolean)) {
+    if (Object.keys(stepErrors).length > 0) {
       toast.error("Complete the organization details before continuing.");
       return;
     }
@@ -98,10 +129,27 @@ export default function RegisterPage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    setTouched({
+      organizationName: true,
+      organizationType: true,
+      organizationEmail: true,
+      fullName: true,
+      adminEmail: true,
+      password: true,
+      confirmPassword: true,
+    });
+
     const validationErrors = validateRegisterForm(values);
     setErrors(validationErrors);
 
     if (Object.keys(validationErrors).length > 0) {
+      const step1Errors = validateOrganizationStep(values);
+      if (Object.keys(step1Errors).length > 0) {
+        setCurrentStep(1);
+        toast.error("Complete the organization details before continuing.");
+        return;
+      }
+
       toast.error("Please correct the highlighted fields.");
       return;
     }
@@ -125,16 +173,28 @@ export default function RegisterPage() {
 
       setValues(defaultValues);
       setErrors({});
+      setTouched({});
       setCurrentStep(1);
       router.replace(
         `/verify-email?email=${encodeURIComponent(result.email)}`,
       );
     } catch (error) {
-      toast.error(
+      const message =
         error instanceof ApiError
           ? error.message
-          : "Unable to create the account right now.",
-      );
+          : "Unable to create the account right now.";
+
+      if (
+        message.toLowerCase().includes("email") ||
+        message.toLowerCase().includes("account with this email")
+      ) {
+        setErrors((previous) => ({
+          ...previous,
+          adminEmail: message,
+        }));
+      }
+
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -170,6 +230,7 @@ export default function RegisterPage() {
             isSubmitting={isSubmitting}
             isValid={isValid}
             onUpdateValue={updateValue}
+            onBlurField={handleBlur}
             onNextStep={handleNextStep}
             onPreviousStep={handlePreviousStep}
             onSubmit={handleSubmit}

@@ -13,6 +13,8 @@ import type {
   UpdateDocumentInput,
   ConfirmDocumentData,
   BulkUploadItem,
+  UploadFolderResult,
+  UploadProcessingMode,
 } from "@/types/document";
 
 type DocumentApiRecord = {
@@ -198,14 +200,17 @@ export const documentApi = {
 
     const response = await apiClient.postFormData<
       ApiSuccessEnvelope<{
-        saved: DocumentApiRecord[];
-        failed: { fileName: string; reason: string }[];
+        saved?: DocumentApiRecord[];
+        failed?: { fileName: string; reason: string }[];
       }>
     >("/documents/bulk", form);
 
+    const saved = response.data?.saved ?? [];
+    const failed = response.data?.failed ?? [];
+
     return {
-      saved: response.data.saved.map(normalizeDocument),
-      failed: response.data.failed ?? [],
+      saved: Array.isArray(saved) ? saved.map(normalizeDocument) : [],
+      failed: Array.isArray(failed) ? failed : [],
     };
   },
 
@@ -232,7 +237,8 @@ export const documentApi = {
       "/documents/inbox",
     );
 
-    return response.data.map(normalizeDocument);
+    const docs = response.data ?? [];
+    return Array.isArray(docs) ? docs.map(normalizeDocument) : [];
   },
   async confirmDocument(id: string, data: Partial<ConfirmDocumentData>): Promise<Document> {
     const response = await apiClient.patch<ApiSuccessEnvelope<DocumentApiRecord>>(
@@ -241,5 +247,67 @@ export const documentApi = {
     );
 
     return normalizeDocument(response.data);
+  },
+
+  async uploadFolder({
+    files,
+    paths,
+    parentFolderId,
+    rootFolderName,
+    modes,
+  }: {
+    files: File[];
+    paths: string[];
+    parentFolderId?: string | null;
+    rootFolderName?: string;
+    modes?: UploadProcessingMode[];
+  }): Promise<UploadFolderResult> {
+    const form = new FormData();
+    files.forEach((file) => form.append("files", file));
+    form.append("paths", JSON.stringify(paths));
+
+    if (parentFolderId) {
+      form.append("parentFolderId", parentFolderId);
+    }
+    if (rootFolderName?.trim()) {
+      form.append("rootFolderName", rootFolderName.trim());
+    }
+    if (modes && modes.length > 0) {
+      form.append("modes", JSON.stringify(modes));
+    }
+
+    const response = await apiClient.postFormData<
+      ApiSuccessEnvelope<{
+        folder: {
+          id: string;
+          name: string;
+          slug: string;
+        };
+        createdFoldersCount?: number;
+        foldersCreated?: number;
+        uploadedDocuments?: DocumentApiRecord[];
+        saved?: DocumentApiRecord[];
+        failures?: { fileName: string; reason: string }[];
+        failed?: { fileName: string; reason: string }[];
+      }>
+    >("/documents/upload-folder", form);
+
+    const uploadedDocs =
+      response.data?.uploadedDocuments ?? response.data?.saved ?? [];
+    const failuresList =
+      response.data?.failures ?? response.data?.failed ?? [];
+    const createdCount =
+      response.data?.createdFoldersCount ??
+      response.data?.foldersCreated ??
+      0;
+
+    return {
+      folder: response.data?.folder ?? { id: "", name: "", slug: "" },
+      createdFoldersCount: createdCount,
+      uploadedDocuments: Array.isArray(uploadedDocs)
+        ? uploadedDocs.map(normalizeDocument)
+        : [],
+      failures: Array.isArray(failuresList) ? failuresList : [],
+    };
   },
 };

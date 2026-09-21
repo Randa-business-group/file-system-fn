@@ -16,6 +16,7 @@ import type {
   UpdateDocumentInput,
   ConfirmDocumentData,
   BulkUploadItem,
+  UploadProcessingMode,
 } from "@/types/document";
 
 export function useProcessDocument() {
@@ -166,6 +167,33 @@ export function useBulkUpload() {
     isLoading: mutation.isPending,
     isError: mutation.isError,
     error: mutation.error,
+  };
+}
+
+export function useUploadFolder() {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (payload: {
+      files: File[];
+      paths: string[];
+      parentFolderId?: string | null;
+      rootFolderName?: string;
+      modes?: UploadProcessingMode[];
+    }) => documentApi.uploadFolder(payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["documents"] });
+      await queryClient.invalidateQueries({ queryKey: ["folders"] });
+      await queryClient.invalidateQueries({ queryKey: ["tray"] });
+    },
+  });
+
+  return {
+    mutate: mutation.mutate,
+    mutateAsync: mutation.mutateAsync,
+    isLoading: mutation.isPending,
+    isError: mutation.isError,
+    error: mutation.error,
+    data: mutation.data,
   };
 }
 

@@ -12,6 +12,7 @@ interface RegisterOrganizationStepProps {
     key: K,
     value: RegisterFormValues[K],
   ) => void;
+  onBlurField?: (key: keyof RegisterFormValues) => void;
 }
 
 const organizationPlaceholders = {
@@ -23,6 +24,7 @@ export function RegisterOrganizationStep({
   values,
   errors,
   onUpdateValue,
+  onBlurField,
 }: RegisterOrganizationStepProps) {
   const isCompany = values.organizationType === OrganizationType.COMPANY;
 
@@ -34,6 +36,7 @@ export function RegisterOrganizationStep({
         error={errors.organizationType}
         value={values.organizationType}
         onChange={(value) => onUpdateValue("organizationType", value)}
+        onBlur={() => onBlurField?.("organizationType")}
       />
 
       <UnderlineField
@@ -42,6 +45,7 @@ export function RegisterOrganizationStep({
         type="text"
         value={values.organizationName}
         onChange={(value) => onUpdateValue("organizationName", value)}
+        onBlur={() => onBlurField?.("organizationName")}
         error={errors.organizationName}
         autoComplete="organization"
         placeholder={organizationPlaceholders[values.organizationType]}
@@ -54,6 +58,7 @@ export function RegisterOrganizationStep({
           type="email"
           value={values.organizationEmail}
           onChange={(value) => onUpdateValue("organizationEmail", value)}
+          onBlur={() => onBlurField?.("organizationEmail")}
           error={errors.organizationEmail}
           autoComplete="email"
           placeholder="contact@organization.com"
