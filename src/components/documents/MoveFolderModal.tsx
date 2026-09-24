@@ -59,12 +59,24 @@ export function MoveFolderModal({ isOpen, onClose, documentId }: MoveFolderModal
                 <div key={index} className="h-12 animate-pulse rounded-2xl bg-[var(--color-bg-tertiary)]" />
               ))}
             </div>
-          ) : folders.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-default bg-surface p-6 text-center text-sm text-secondary">
-              No folders found. Create a folder first to move this document.
-            </div>
           ) : (
             <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setSelectedFolderId("root")}
+                className={[
+                  "flex w-full items-center justify-between rounded-3xl border px-4 py-3 text-left transition",
+                  selectedFolderId === "root"
+                    ? "border-primary bg-primary-subtle text-primary"
+                    : "border-default bg-surface text-foreground hover:border-primary hover:bg-[var(--color-bg-secondary)]",
+                ].join(" ")}
+              >
+                <span className="inline-flex items-center gap-2 text-sm font-medium">
+                  <FolderArchive className="h-4 w-4" />
+                  Root directory (no folder)
+                </span>
+                <ChevronRight className="h-4 w-4" />
+              </button>
               {folders.map((folder: Folder) => {
                 const isSelected = folder.id === selectedFolderId;
                 return (

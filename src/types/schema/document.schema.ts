@@ -5,6 +5,15 @@ export const confirmDocumentSchema = z.object({
     .string()
     .trim()
     .min(2, "Title must have at least 2 characters."),
+  folderId: z.preprocess(
+    (value) => {
+      if (typeof value === "string" && value.trim() === "") {
+        return undefined;
+      }
+      return value;
+    },
+    z.string().optional(),
+  ),
   categoryId: z.preprocess(
     (value) => {
       if (typeof value === "string" && value.trim() === "") {
@@ -26,7 +35,7 @@ export const confirmDocumentSchema = z.object({
   summary: z
     .string()
     .trim()
-    .min(10, "Summary must have at least 10 characters."),
+    .optional(),
   // Optional AI-extracted metadata (user-editable)
   documentOwner: z.string().trim().optional(),
   author: z.string().trim().optional(),

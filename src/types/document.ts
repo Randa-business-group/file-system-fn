@@ -14,14 +14,14 @@ export interface Document {
   documentDate?: string | null;
   createdAt: string;
   updatedAt: string;
-  category: {
+  category?: {
     id: string;
     name: string;
-  };
-  folder: {
+  } | null;
+  folder?: {
     id: string;
     name: string;
-  };
+  } | null;
   uploadedBy: {
     id: string;
     name: string;
@@ -63,21 +63,24 @@ export interface ProcessDocumentResult {
 export interface CreateDocumentInput {
   fileUrl: string;
   fileName: string;
-  extractedText: string;
-  title: string;
-  summary: string;
+  extractedText?: string;
+  title?: string;
+  summary?: string;
   categoryId?: string;
-  // folderId is provided by the upload context (optional when called programmatically)
-  folderId?: string;
-  // optional AI-extracted fields - user can edit before confirming
-  documentOwner?: string;
-  author?: string;
-  documentType?: string;
-  concerning?: string;
-  purpose?: string;
-  documentDate?: string;
+  // folderId is optional; defaults to root directory if omitted or null
+  folderId?: string | null;
+  // optional AI-extracted fields
+  documentOwner?: string | null;
+  author?: string | null;
+  documentType?: string | null;
+  concerning?: string | null;
+  purpose?: string | null;
+  documentDate?: string | null;
   // optional category name suggested by AI; server will resolve/create
   category?: string;
+  // Decoupled AI scanning flag
+  scanWithAi?: boolean;
+  mode?: "ai" | "manual";
 }
 
 export interface UpdateDocumentInput {

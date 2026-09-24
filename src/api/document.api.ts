@@ -33,14 +33,14 @@ type DocumentApiRecord = {
   documentDate?: string | null;
   createdAt: string;
   updatedAt: string;
-  category: {
+  category?: {
     id: string;
     name: string;
-  };
-  folder: {
+  } | null;
+  folder?: {
     id: string;
     name: string;
-  };
+  } | null;
   uploadedBy: {
     id: string;
     name: string;
@@ -77,8 +77,8 @@ function normalizeDocument(document: DocumentApiRecord): Document {
     documentDate: document.documentDate ?? null,
     createdAt: document.createdAt,
     updatedAt: document.updatedAt,
-    category: document.category,
-    folder: document.folder,
+    category: document.category ?? null,
+    folder: document.folder ?? null,
     uploadedBy: document.uploadedBy,
     organizationId: document.organizationId,
   };

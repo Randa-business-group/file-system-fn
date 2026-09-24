@@ -23,8 +23,8 @@ import type { FolderUploadFileItem, UploadProcessingMode, UploadFolderResult } f
 import { DocumentTypeIcon } from "@/components/documents/DocumentTypeIcon";
 import { isSupportedUploadFile } from "@/lib/upload-file-types";
 
-const MAX_FOLDER_FILES = 100;
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
+const MAX_FOLDER_FILES = 500;
+const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB limit for large files
 
 interface FolderUploadDrawerProps {
   isOpen?: boolean;
@@ -221,7 +221,7 @@ export function FolderUploadDrawer({
     const valid: ScannedItem[] = [];
     newItems.forEach((item) => {
       if (item.file.size > MAX_FILE_SIZE) {
-        toast.error(`File ${item.file.name} exceeds 10MB limit (skipped)`);
+        toast.error(`File ${item.file.name} exceeds size limit (skipped)`);
       } else if (!isSupportedUploadFile(item.file)) {
         toast.error(`File ${item.file.name} is not a supported file type (skipped)`);
       } else {
@@ -406,7 +406,7 @@ export function FolderUploadDrawer({
             {isScanning ? "Scanning folder contents…" : "Drag & drop a folder here or click to browse"}
           </p>
           <p className="mt-1 text-xs text-secondary">
-            Preserves full folder tree · up to {MAX_FOLDER_FILES} files · 10MB per file
+            Preserves full folder tree · up to {MAX_FOLDER_FILES} files · fast parallel upload
           </p>
           <button
             type="button"
