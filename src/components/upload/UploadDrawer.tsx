@@ -12,12 +12,10 @@ import { ModeSelector } from "./ModeSelector";
 import {
   useConfirmDocument,
   useCreateDocument,
-  useProcessDocument,
 } from "@/lib/hooks/useDocuments";
 import { useGetRootFolders } from "@/lib/hooks/useFolders";
 import { useDashboard } from "@/lib/dashboard-context";
 import { uploadApi } from "@/api/upload.api";
-import { extractTextFromFile } from "@/lib/extract-text";
 import type { ProcessDocumentResult, UploadProcessingMode } from "@/types/document";
 import type {
   ConfirmDocumentFormData,
@@ -63,9 +61,10 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
   const currentFolder = folders.find((f) => f.id === effectiveFolderId);
   const targetFolderName = currentFolder?.name ?? null;
 
-  const processDocument = useProcessDocument();
   const createDocument = useCreateDocument();
   const confirmDocument = useConfirmDocument();
+
+  const [isUploadingSingle, setIsUploadingSingle] = useState(false);
 
   const resetUploadState = useCallback(() => {
     setState("IDLE");
@@ -74,6 +73,7 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
     setSelectedFile(null);
     setExtractedText("");
     setAiResult(null);
+    setIsUploadingSingle(false);
   }, []);
 
   const handleResetToPortal = useCallback(() => {
@@ -109,22 +109,40 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
     [],
   );
 
-  const handleProcessFile = async (file: File) => {
-    setState("PROCESSING");
-    setCurrentStep(1);
+  const handleInstantAiUpload = async (file: File) => {
+    setIsUploadingSingle(true);
+    const toastId = toast.loading(`Uploading "${file.name}"...`);
 
     try {
-      const text = await extractTextFromFile(file);
-      setExtractedText(text);
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", file);
+      const uploadResult = await uploadApi.uploadFile(uploadFormData);
+      const fileUrl = uploadResult.url;
 
-      setCurrentStep(2);
-      const result = await processDocument.mutateAsync(text);
-      setAiResult(result);
-      setState("CONFIRM");
-    } catch (error) {
-      console.error("Processing error:", error);
-      toast.error("Failed to process document. Please try again.");
+      await createDocument.mutateAsync({
+        fileUrl,
+        fileName: file.name,
+        title: stripExtension(file.name),
+        folderId: effectiveFolderId || undefined,
+        scanWithAi: true,
+        mode: "ai",
+      });
+
+      toast.success(
+        `"${file.name}" uploaded successfully! AI is analyzing in the background.`,
+        { id: toastId },
+      );
+
+      onClose();
       handleResetToPortal();
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to upload document",
+        { id: toastId },
+      );
+    } finally {
+      setIsUploadingSingle(false);
     }
   };
 
@@ -133,14 +151,17 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
 
     setProcessingMode(nextMode);
 
+    if (nextMode === "ai") {
+      void handleInstantAiUpload(selectedFile);
+      return;
+    }
+
     if (nextMode === "manual") {
       setExtractedText("");
       setAiResult(emptyManualDefaults(selectedFile.name));
       setState("CONFIRM");
       return;
     }
-
-    void handleProcessFile(selectedFile);
   };
 
   const handleConfirmDocument = async (
@@ -154,12 +175,10 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
     const targetFolderId =
       processingMode === "manual"
         ? (data as ManualConfirmDocumentFormData).folderId ?? effectiveFolderId
-        : effectiveFolderId;
+        : (data as ConfirmDocumentFormData).folderId ?? effectiveFolderId;
 
-    if (!targetFolderId) {
-      toast.error("Please select a folder");
-      return;
-    }
+    // Folder is optional: targetFolderId can be undefined / null for root directory
+    const effectiveTargetFolder = targetFolderId || undefined;
 
     try {
       const uploadFormData = new FormData();
@@ -173,32 +192,29 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
           fileUrl,
           fileName: selectedFile.name,
           extractedText: "",
-          folderId: targetFolderId,
+          folderId: effectiveTargetFolder,
           title: manualData.title,
           summary: "Uploaded manually.",
+          scanWithAi: false,
+          mode: "manual",
         });
 
         await confirmDocument.mutateAsync({
           id: created.id,
           data: {
             title: manualData.title,
-            folderId: targetFolderId,
+            folderId: effectiveTargetFolder,
           },
         });
       } else {
-        if (!extractedText) {
-          toast.error("Missing document data");
-          return;
-        }
-
         const aiData = data as ConfirmDocumentFormData;
         await createDocument.mutateAsync({
           fileUrl,
           fileName: selectedFile.name,
-          extractedText,
-          folderId: targetFolderId,
+          extractedText: extractedText || undefined,
+          folderId: effectiveTargetFolder,
           title: aiData.title,
-          summary: aiData.summary,
+          summary: aiData.summary || undefined,
           categoryId: aiData.categoryId?.trim() ? aiData.categoryId : undefined,
           category:
             !aiData.categoryId?.trim() && aiData.categoryName?.trim()
@@ -210,10 +226,16 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
           concerning: aiData.concerning,
           purpose: aiData.purpose,
           documentDate: aiData.documentDate,
+          scanWithAi: true,
+          mode: "ai",
         });
       }
 
-      toast.success("Document uploaded successfully");
+      toast.success(
+        processingMode === "ai"
+          ? "Document uploaded successfully! AI scanning is processing in the background."
+          : "Document uploaded successfully!",
+      );
       setState("SUCCESS");
 
       setTimeout(() => {
@@ -345,6 +367,7 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
                 <ModeSelector
                   fileName={selectedFile.name}
                   fileType={selectedFile.type}
+                  isUploading={isUploadingSingle}
                   onSelect={handleModeSelect}
                   onBack={handleResetToPortal}
                 />

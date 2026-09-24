@@ -24,8 +24,8 @@ import {
   UPLOAD_ACCEPT,
 } from "@/lib/upload-file-types";
 
-const MAX_FILES = 15;
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILES = 50;
+const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB limit
 
 interface BulkUploadDrawerProps {
   isOpen?: boolean;
@@ -114,7 +114,7 @@ export function BulkUploadDrawer({
     if (invalidFiles.length > 0) {
       invalidFiles.forEach((f) => {
         if (f.size > MAX_FILE_SIZE) {
-          toast.error(`File ${f.name} exceeds 10MB limit`);
+          toast.error(`File ${f.name} exceeds size limit`);
         } else {
           toast.error(`File ${f.name} is not a supported file type`);
         }
@@ -285,7 +285,7 @@ export function BulkUploadDrawer({
                 Drag & drop or click to browse
               </p>
               <p className="mt-1 text-xs text-secondary">
-                Supports PDF, Word, Excel, CSV and images · max {MAX_FILES} files · 10MB each
+                Supports PDF, Word, Excel, CSV and images · max {MAX_FILES} files · fast parallel upload
               </p>
               <label
                 htmlFor="bulk-file-input"

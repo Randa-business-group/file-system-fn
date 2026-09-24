@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Sparkles } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useGetCategories } from "@/lib/hooks/useCategories";
@@ -60,6 +60,7 @@ export function ConfirmDocumentForm({
     resolver: zodResolver(confirmDocumentSchema) as any,
     defaultValues: {
       title: defaultValues.title,
+      folderId: folderId || undefined,
       categoryId: initialCategoryId,
       categoryName: predictedCategoryName || defaultValues.category || undefined,
       summary: defaultValues.summary,
@@ -126,6 +127,7 @@ export function ConfirmDocumentForm({
 
     aiForm.reset({
       title: defaultValues.title,
+      folderId: folderId || undefined,
       categoryId: initialCategoryId,
       categoryName: predictedCategoryName || defaultValues.category || undefined,
       summary: defaultValues.summary,
@@ -176,7 +178,7 @@ export function ConfirmDocumentForm({
 
         <div>
           <label htmlFor="folderId" className="block text-sm font-medium text-foreground">
-            Folder
+            Folder (Optional)
           </label>
           <select
             id="folderId"
@@ -184,7 +186,7 @@ export function ConfirmDocumentForm({
             disabled={foldersLoading}
             className="mt-1 w-full rounded-2xl border border-default bg-surface px-4 py-2 text-foreground focus:border-primary focus:outline-none"
           >
-            <option value="">Select a folder</option>
+            <option value="">Root directory (no folder)</option>
             {folders.map((folder) => (
               <option key={folder.id} value={folder.id}>
                 {folder.name}
@@ -227,6 +229,16 @@ export function ConfirmDocumentForm({
 
   return (
     <form onSubmit={handleSubmit(onConfirm)} className="grid gap-6 sm:grid-cols-2">
+      <div className="sm:col-span-2 rounded-2xl border border-primary/20 bg-primary/5 p-4 flex items-start gap-3">
+        <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+        <div className="text-xs">
+          <p className="font-semibold text-foreground">Asynchronous AI Scanning</p>
+          <p className="mt-0.5 text-secondary">
+            Your file will upload immediately at full speed. AI categorization, OCR, and metadata extraction run asynchronously in the background.
+          </p>
+        </div>
+      </div>
+
       <div className="sm:col-span-2">
         <label htmlFor="title" className="block text-sm font-medium text-foreground">
           Title
@@ -240,6 +252,28 @@ export function ConfirmDocumentForm({
         />
         {errors.title && (
           <p className="mt-1 text-xs text-red-600">{errors.title.message}</p>
+        )}
+      </div>
+
+      <div className="sm:col-span-2">
+        <label htmlFor="ai-folderId" className="block text-sm font-medium text-foreground">
+          Folder (Optional)
+        </label>
+        <select
+          id="ai-folderId"
+          {...register("folderId")}
+          disabled={foldersLoading}
+          className="mt-1 w-full rounded-2xl border border-default bg-surface px-4 py-2 text-foreground focus:border-primary focus:outline-none"
+        >
+          <option value="">Root directory (no folder)</option>
+          {folders.map((folder) => (
+            <option key={folder.id} value={folder.id}>
+              {folder.name}
+            </option>
+          ))}
+        </select>
+        {errors.folderId && (
+          <p className="mt-1 text-xs text-red-600">{errors.folderId.message}</p>
         )}
       </div>
 
@@ -411,7 +445,7 @@ export function ConfirmDocumentForm({
           disabled={isLoading}
           className="flex-1 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isLoading ? "Confirming..." : "Confirm Upload"}
+          {isLoading ? "Uploading..." : "Upload & Scan with AI"}
         </button>
       </div>
     </form>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Sparkles } from "lucide-react";
+import { Loader2, Pencil, Sparkles } from "lucide-react";
 import { DocumentTypeIcon } from "@/components/documents/DocumentTypeIcon";
 import { isSpreadsheetKind } from "@/lib/upload-file-types";
 import { getUploadFileKind } from "@/lib/upload-file-types";
@@ -8,6 +8,7 @@ import { getUploadFileKind } from "@/lib/upload-file-types";
 interface ModeSelectorProps {
   fileName: string;
   fileType: string;
+  isUploading?: boolean;
   onSelect: (mode: "ai" | "manual") => void;
   onBack?: () => void;
 }
@@ -15,6 +16,7 @@ interface ModeSelectorProps {
 export function ModeSelector({
   fileName,
   fileType,
+  isUploading = false,
   onSelect,
   onBack,
 }: ModeSelectorProps) {
@@ -52,42 +54,48 @@ export function ModeSelector({
         <button
           type="button"
           onClick={() => onSelect("ai")}
-          className="group rounded-2xl border border-default bg-surface p-5 text-left transition hover:border-primary hover:shadow-sm"
+          disabled={isUploading}
+          className="group rounded-2xl border border-default bg-surface p-5 text-left transition hover:border-primary hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
         >
           <div className="flex items-start justify-between gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-subtle text-primary">
-              <Sparkles className="h-5 w-5" />
+              {isUploading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Sparkles className="h-5 w-5" />
+              )}
             </span>
             <span className="rounded-full bg-primary-subtle px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary">
-              Recommended
+              {isUploading ? "Uploading..." : "Instant Upload"}
             </span>
           </div>
           <h4 className="mt-4 text-sm font-semibold text-foreground">
-            Analyse with AI
+            {isUploading ? "Uploading file..." : "Upload & Scan with AI"}
           </h4>
           <p className="mt-2 text-sm leading-relaxed text-secondary">
-            {aiDescription}
+            Uploads immediately so you can continue your work right away. AI analyzes and categorizes in the background.
           </p>
         </button>
 
         <button
           type="button"
           onClick={() => onSelect("manual")}
-          className="group rounded-2xl border border-default bg-surface p-5 text-left transition hover:border-default hover:bg-[var(--color-bg-secondary)]"
+          disabled={isUploading}
+          className="group rounded-2xl border border-default bg-surface p-5 text-left transition hover:border-default hover:bg-[var(--color-bg-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           <div className="flex items-start justify-between gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-bg-secondary)] text-secondary">
               <Pencil className="h-5 w-5" />
             </span>
             <span className="rounded-full bg-[var(--color-bg-secondary)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-secondary">
-              Faster
+              Manual Details
             </span>
           </div>
           <h4 className="mt-4 text-sm font-semibold text-foreground">
-            Fill manually
+            Fill details manually
           </h4>
           <p className="mt-2 text-sm leading-relaxed text-secondary">
-            Skip AI analysis. Just enter a title and save the document quickly.
+            Customize document title and destination folder before saving without AI.
           </p>
         </button>
       </div>

@@ -20,7 +20,7 @@ import {
   type ScannedItem,
 } from "./FolderUploadDrawer";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
+const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB limit for large files
 
 export type DropResult =
   | { type: "single"; file: File }
@@ -80,7 +80,7 @@ export function DropZone({ onItemsSelected, targetFolderName }: DropZoneProps) {
 
     if (oversizedCount > 0) {
       toast.error(
-        `${oversizedCount} file${oversizedCount > 1 ? "s" : ""} skipped (exceeds 10MB limit)`,
+        `${oversizedCount} file${oversizedCount > 1 ? "s" : ""} skipped (exceeds size limit)`,
       );
     }
     if (unsupportedCount > 0) {
@@ -275,7 +275,7 @@ export function DropZone({ onItemsSelected, targetFolderName }: DropZoneProps) {
             {/* Supported Formats & Rules */}
             <div className="pt-4 border-t border-default/60 max-w-lg mx-auto">
               <p className="text-xs font-medium uppercase tracking-wider text-muted mb-2.5">
-                Supported Formats · Up to 10MB per file
+                Supported Formats · Large & Small Files Supported
               </p>
               <div className="flex flex-wrap items-center justify-center gap-1.5">
                 <span className="rounded-md bg-red-100/70 px-2 py-0.5 text-xs font-medium text-red-700">
