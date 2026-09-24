@@ -118,11 +118,13 @@ export const apiClient = {
     formData: FormData,
     config?: RequestConfig,
   ): Promise<TResponse> {
+    const customHeaders = { ...(config?.headers ?? {}) };
+    delete (customHeaders as Record<string, unknown>)["Content-Type"];
     const response = await httpClient.post<TResponse>(path, formData, {
       ...config,
       headers: {
-        ...(config?.headers ?? {}),
-        "Content-Type": "multipart/form-data",
+        ...customHeaders,
+        "Content-Type": undefined,
       },
     });
     return response.data;

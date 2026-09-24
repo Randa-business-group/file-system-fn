@@ -64,6 +64,8 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
   const createDocument = useCreateDocument();
   const confirmDocument = useConfirmDocument();
 
+  const [isUploadingSingle, setIsUploadingSingle] = useState(false);
+
   const resetUploadState = useCallback(() => {
     setState("IDLE");
     setProcessingMode("ai");
@@ -71,6 +73,7 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
     setSelectedFile(null);
     setExtractedText("");
     setAiResult(null);
+    setIsUploadingSingle(false);
   }, []);
 
   const handleResetToPortal = useCallback(() => {
@@ -106,10 +109,52 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
     [],
   );
 
+  const handleInstantAiUpload = async (file: File) => {
+    setIsUploadingSingle(true);
+    const toastId = toast.loading(`Uploading "${file.name}"...`);
+
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", file);
+      const uploadResult = await uploadApi.uploadFile(uploadFormData);
+      const fileUrl = uploadResult.url;
+
+      await createDocument.mutateAsync({
+        fileUrl,
+        fileName: file.name,
+        title: stripExtension(file.name),
+        folderId: effectiveFolderId || undefined,
+        scanWithAi: true,
+        mode: "ai",
+      });
+
+      toast.success(
+        `"${file.name}" uploaded successfully! AI is analyzing in the background.`,
+        { id: toastId },
+      );
+
+      onClose();
+      handleResetToPortal();
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to upload document",
+        { id: toastId },
+      );
+    } finally {
+      setIsUploadingSingle(false);
+    }
+  };
+
   const handleModeSelect = (nextMode: UploadProcessingMode) => {
     if (!selectedFile) return;
 
     setProcessingMode(nextMode);
+
+    if (nextMode === "ai") {
+      void handleInstantAiUpload(selectedFile);
+      return;
+    }
 
     if (nextMode === "manual") {
       setExtractedText("");
@@ -117,16 +162,6 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
       setState("CONFIRM");
       return;
     }
-
-    // AI Mode: decoupled background scanning
-    // Upload starts without blocking on slow client-side OCR
-    setExtractedText("");
-    setAiResult({
-      title: stripExtension(selectedFile.name),
-      category: "",
-      summary: "",
-    });
-    setState("CONFIRM");
   };
 
   const handleConfirmDocument = async (
@@ -332,6 +367,7 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
                 <ModeSelector
                   fileName={selectedFile.name}
                   fileType={selectedFile.type}
+                  isUploading={isUploadingSingle}
                   onSelect={handleModeSelect}
                   onBack={handleResetToPortal}
                 />
