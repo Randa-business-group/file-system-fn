@@ -65,6 +65,7 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
   const confirmDocument = useConfirmDocument();
 
   const [isUploadingSingle, setIsUploadingSingle] = useState(false);
+  const [isConfirmingDocument, setIsConfirmingDocument] = useState(false);
 
   const resetUploadState = useCallback(() => {
     setState("IDLE");
@@ -74,6 +75,7 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
     setExtractedText("");
     setAiResult(null);
     setIsUploadingSingle(false);
+    setIsConfirmingDocument(false);
   }, []);
 
   const handleResetToPortal = useCallback(() => {
