@@ -25,6 +25,7 @@ import {
 } from "@/lib/upload-file-types";
 
 const MAX_FILES = 50;
+const BULK_UPLOAD_BATCH_SIZE = 8;
 const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB limit
 
 interface BulkUploadDrawerProps {
@@ -80,6 +81,7 @@ export function BulkUploadDrawer({
   });
   const [isUploading, setIsUploading] = useState(false);
   const [allComplete, setAllComplete] = useState(false);
+  const [filesUploaded, setFilesUploaded] = useState(0);
   const bulkUpload = useBulkUpload();
 
   const isValidFile = (file: File): boolean =>
@@ -160,72 +162,105 @@ export function BulkUploadDrawer({
     });
   };
 
+  const applyBulkBatchResults = (
+    batchIndices: number[],
+    saved: Awaited<ReturnType<typeof bulkUpload.mutateAsync>>["saved"],
+    failed: Awaited<ReturnType<typeof bulkUpload.mutateAsync>>["failed"],
+  ) => {
+    const savedByName = new Map(saved.map((doc) => [doc.fileName, doc]));
+    const failedByName = new Map(failed.map((entry) => [entry.fileName, entry.reason]));
+
+    setFiles((prev) =>
+      prev.map((item, index) => {
+        if (!batchIndices.includes(index)) return item;
+
+        const savedDoc =
+          savedByName.get(item.file.name) ?? savedByName.get(item.fileName);
+
+        if (savedDoc) {
+          if (item.mode === "manual" || savedDoc.processingStatus === "confirmed") {
+            return { ...item, status: "done" as const };
+          }
+          return { ...item, status: "queued" as const };
+        }
+
+        const reason =
+          failedByName.get(item.file.name) ?? failedByName.get(item.fileName);
+        if (reason) {
+          return { ...item, status: "error" as const, error: reason };
+        }
+        return { ...item, status: "error" as const, error: "Upload failed" };
+      }),
+    );
+  };
+
   const handleUploadAll = async () => {
     if (files.length === 0) return;
 
     setIsUploading(true);
     setAllComplete(false);
+    setFilesUploaded(0);
 
     setFiles((prev) =>
       prev.map((item) => ({
         ...item,
-        status: "uploading" as const,
+        status: "pending" as const,
         error: undefined,
       })),
     );
 
-    const items = files.map((item) => ({
-      file: item.file,
-      fileName: item.fileName,
-      fileType: item.fileType,
-      mode: item.mode,
-    }));
+    const allSaved: Awaited<ReturnType<typeof bulkUpload.mutateAsync>>["saved"] = [];
+    const allFailed: Awaited<ReturnType<typeof bulkUpload.mutateAsync>>["failed"] = [];
 
     try {
-      const { saved, failed } = await bulkUpload.mutateAsync({ items });
+      const totalBatches = Math.ceil(files.length / BULK_UPLOAD_BATCH_SIZE);
 
-      const savedByName = new Map(
-        saved.map((doc) => [doc.fileName, doc]),
-      );
-      const failedByName = new Map(
-        failed.map((entry) => [entry.fileName, entry.reason]),
-      );
+      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        const start = batchIndex * BULK_UPLOAD_BATCH_SIZE;
+        const end = Math.min(start + BULK_UPLOAD_BATCH_SIZE, files.length);
+        const batchItems = files.slice(start, end);
+        const batchIndices = Array.from(
+          { length: end - start },
+          (_, offset) => start + offset,
+        );
 
-      setFiles((prev) =>
-        prev.map((item) => {
-          const savedDoc =
-            savedByName.get(item.file.name) ?? savedByName.get(item.fileName);
+        setFiles((prev) =>
+          prev.map((item, index) =>
+            batchIndices.includes(index)
+              ? { ...item, status: "uploading" as const }
+              : item,
+          ),
+        );
 
-          if (savedDoc) {
-            if (item.mode === "manual" || savedDoc.processingStatus === "confirmed") {
-              return { ...item, status: "done" as const };
-            }
-            return { ...item, status: "queued" as const };
-          }
+        const { saved, failed } = await bulkUpload.mutateAsync({
+          items: batchItems.map((item) => ({
+            file: item.file,
+            fileName: item.fileName,
+            fileType: item.fileType,
+            mode: item.mode,
+          })),
+        });
 
-          const reason =
-            failedByName.get(item.file.name) ?? failedByName.get(item.fileName);
-          if (reason) {
-            return { ...item, status: "error" as const, error: reason };
-          }
-          return { ...item, status: "error" as const, error: "Upload failed" };
-        }),
-      );
+        allSaved.push(...saved);
+        allFailed.push(...failed);
+        applyBulkBatchResults(batchIndices, saved, failed);
+        setFilesUploaded(end);
+      }
 
       setAllComplete(true);
 
       const manualCount = files.filter((file) => file.mode === "manual").length;
       const aiCount = files.length - manualCount;
 
-      if (saved.length === 0) {
+      if (allSaved.length === 0) {
         toast.error("No files were uploaded.");
-      } else if (failed.length > 0) {
+      } else if (allFailed.length > 0) {
         toast.warning(
-          `${saved.length} file${saved.length === 1 ? "" : "s"} uploaded. ${failed.length} failed.`,
+          `${allSaved.length} file${allSaved.length === 1 ? "" : "s"} uploaded. ${allFailed.length} failed.`,
         );
       } else if (aiCount > 0 && manualCount > 0) {
         toast.success(
-          `${manualCount} saved immediately. ${aiCount} queued for AI analysis in Tray.`,
+          `${manualCount} saved immediately. ${aiCount} queued — open Tray to confirm each document.`,
         );
       } else if (manualCount > 0) {
         toast.success(
@@ -233,18 +268,22 @@ export function BulkUploadDrawer({
         );
       } else {
         toast.success(
-          `${saved.length} file${saved.length === 1 ? "" : "s"} uploaded. AI analyzes them one by one — open Tray to follow progress.`,
+          `${allSaved.length} file${allSaved.length === 1 ? "" : "s"} uploaded. Open Tray to review and confirm one by one.`,
         );
       }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Bulk upload failed";
       setFiles((prev) =>
-        prev.map((item) => ({
-          ...item,
-          status: "error" as const,
-          error: message,
-        })),
+        prev.map((item) =>
+          item.status === "done" || item.status === "queued"
+            ? item
+            : {
+                ...item,
+                status: "error" as const,
+                error: message,
+              },
+        ),
       );
       setAllComplete(true);
       toast.error(message);
@@ -264,14 +303,22 @@ export function BulkUploadDrawer({
   const showProgressStep = isUploading || allComplete;
   const queuedCount = files.filter((f) => f.status === "queued").length;
   const doneCount = files.filter((f) => f.status === "done").length;
+  const overallPercent =
+    files.length > 0
+      ? Math.min(100, Math.round((filesUploaded / files.length) * 100))
+      : 0;
 
   const content = (
     <>
       <div className="space-y-6">
-        <p className="text-sm text-secondary">
-          Choose AI or manual per file. AI files upload first, then OCR and AI run{" "}
-          <strong className="font-medium text-foreground">one at a time</strong>.
-        </p>
+        <div className="rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-xs text-amber-950">
+          <p className="font-semibold">Bulk upload + Tray for AI</p>
+          <p className="mt-1 leading-relaxed opacity-90">
+            <strong>AI</strong> files are uploaded in batches, then processed{" "}
+            <strong>one document at a time</strong> in Tray — open Tray to review
+            metadata and confirm each file. <strong>Manual</strong> saves immediately.
+          </p>
+        </div>
 
         {!showProgressStep && (
           <div className="space-y-6">
@@ -385,15 +432,25 @@ export function BulkUploadDrawer({
         {showProgressStep && (
           <div className="space-y-4">
             {isUploading && (
-              <div className="flex items-center gap-3 rounded border border-primary/20 bg-primary/5 px-4 py-3">
-                <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    Uploading files…
-                  </p>
-                  <p className="text-xs text-secondary">
-                    Manual files save immediately. AI files continue on Tray.
-                  </p>
+              <div className="rounded-xl border border-default bg-surface p-4 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      Uploading files ({filesUploaded}/{files.length})
+                    </p>
+                    <p className="mt-0.5 text-xs text-secondary">
+                      Sending in small batches to avoid timeouts
+                    </p>
+                  </div>
+                  <span className="text-sm font-semibold tabular-nums text-primary">
+                    {overallPercent}%
+                  </span>
+                </div>
+                <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[var(--color-bg-tertiary)]">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-300"
+                    style={{ width: `${overallPercent}%` }}
+                  />
                 </div>
               </div>
             )}

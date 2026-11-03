@@ -17,14 +17,23 @@ import {
   Layers,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { Modal } from "@/components/ui/Modal";
-import { useUploadFolder } from "@/lib/hooks/useDocuments";
-import type { FolderUploadFileItem, UploadProcessingMode, UploadFolderResult } from "@/types/document";
+import { documentApi } from "@/api/document.api";
+import type {
+  Document,
+  FolderUploadFileItem,
+  UploadFolderResult,
+  UploadProcessingMode,
+} from "@/types/document";
 import { DocumentTypeIcon } from "@/components/documents/DocumentTypeIcon";
 import { isSupportedUploadFile } from "@/lib/upload-file-types";
 
 const MAX_FOLDER_FILES = 500;
+const FOLDER_UPLOAD_BATCH_SIZE = 8;
 const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB limit for large files
+
+type FolderUploadPhase = "idle" | "structure" | "files" | "done";
 
 interface FolderUploadDrawerProps {
   isOpen?: boolean;
@@ -120,6 +129,7 @@ export function FolderUploadDrawer({
   onReset,
 }: FolderUploadDrawerProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const folderInputRef = useRef<HTMLInputElement>(null);
 
   const [files, setFiles] = useState<FolderUploadFileItem[]>(() => {
@@ -142,9 +152,9 @@ export function FolderUploadDrawer({
   });
   const [isScanning, setIsScanning] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadPhase, setUploadPhase] = useState<FolderUploadPhase>("idle");
+  const [filesCompleted, setFilesCompleted] = useState(0);
   const [uploadResult, setUploadResult] = useState<UploadFolderResult | null>(null);
-
-  const uploadFolderMutation = useUploadFolder();
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -266,88 +276,155 @@ export function FolderUploadDrawer({
     setFiles((prev) => prev.map((file) => ({ ...file, mode })));
   };
 
+  const applyBatchResults = (
+    batchIndices: number[],
+    savedDocs: Document[],
+    failedList: { fileName: string; reason: string }[],
+  ) => {
+    const savedByName = new Map(savedDocs.map((doc) => [doc.fileName, doc]));
+    const failedByName = new Map(failedList.map((f) => [f.fileName, f.reason]));
+
+    setFiles((prev) =>
+      prev.map((item, index) => {
+        if (!batchIndices.includes(index)) return item;
+
+        const doc =
+          savedByName.get(item.fileName) ?? savedByName.get(item.file.name);
+        if (doc) {
+          if (item.mode === "manual" || doc.processingStatus === "confirmed") {
+            return { ...item, status: "done" as const };
+          }
+          return { ...item, status: "queued" as const };
+        }
+
+        const failReason =
+          failedByName.get(item.fileName) ?? failedByName.get(item.file.name);
+        if (failReason) {
+          return { ...item, status: "error" as const, error: failReason };
+        }
+        return { ...item, status: "error" as const, error: "Upload failed" };
+      }),
+    );
+  };
+
   const handleUploadFolder = async () => {
     if (files.length === 0) return;
 
     setIsUploading(true);
+    setUploadPhase("structure");
+    setFilesCompleted(0);
     setUploadResult(null);
 
     setFiles((prev) =>
       prev.map((item) => ({
         ...item,
-        status: "uploading",
+        status: "pending" as const,
         error: undefined,
       })),
     );
 
+    const allPaths = files.map((f) => f.relativePath);
+    const aiQueuedTotal = files.filter((f) => f.mode === "ai").length;
+    const allSaved: Document[] = [];
+    const allFailed: { fileName: string; reason: string }[] = [];
+
     try {
-      const result = await uploadFolderMutation.mutateAsync({
-        files: files.map((f) => f.file),
-        paths: files.map((f) => f.relativePath),
+      const initResult = await documentApi.initFolderUpload({
+        paths: allPaths,
         parentFolderId,
         rootFolderName: rootFolderName.trim() || undefined,
-        modes: files.map((f) => f.mode),
       });
 
-      setUploadResult(result);
+      setUploadPhase("files");
 
-      // Match results to file statuses
-      const savedDocs = Array.isArray(result?.uploadedDocuments)
-        ? result.uploadedDocuments
-        : [];
-      const failedList = Array.isArray(result?.failures)
-        ? result.failures
-        : [];
+      const totalBatches = Math.ceil(files.length / FOLDER_UPLOAD_BATCH_SIZE);
 
-      const savedByName = new Map(
-        savedDocs.map((doc) => [doc.fileName, doc]),
-      );
-      const failedByName = new Map(
-        failedList.map((f) => [f.fileName, f.reason]),
-      );
+      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        const start = batchIndex * FOLDER_UPLOAD_BATCH_SIZE;
+        const end = Math.min(start + FOLDER_UPLOAD_BATCH_SIZE, files.length);
+        const batchItems = files.slice(start, end);
+        const batchIndices = Array.from(
+          { length: end - start },
+          (_, offset) => start + offset,
+        );
 
-      setFiles((prev) =>
-        prev.map((item) => {
-          const doc = savedByName.get(item.fileName) ?? savedByName.get(item.file.name);
-          if (doc) {
-            if (item.mode === "manual" || doc.processingStatus === "confirmed") {
-              return { ...item, status: "done" };
-            }
-            return { ...item, status: "queued" };
-          }
-          const failReason = failedByName.get(item.fileName) ?? failedByName.get(item.file.name);
-          if (failReason) {
-            return { ...item, status: "error", error: failReason };
-          }
-          return { ...item, status: "error", error: "Upload failed" };
-        }),
-      );
+        setFiles((prev) =>
+          prev.map((item, index) =>
+            batchIndices.includes(index)
+              ? { ...item, status: "uploading" as const }
+              : item,
+          ),
+        );
 
-      const totalSaved = result.uploadedDocuments.length;
-      const totalFailed = result.failures.length;
+        const isLastBatch = batchIndex === totalBatches - 1;
 
-      if (totalSaved > 0) {
+        const batchResult = await documentApi.uploadFolderBatch({
+          rootFolderId: initResult.folder.id,
+          files: batchItems.map((f) => f.file),
+          paths: batchItems.map((f) => f.relativePath),
+          modes: batchItems.map((f) => f.mode),
+          notifyTray: isLastBatch && aiQueuedTotal > 0,
+          totalAiQueued: isLastBatch && aiQueuedTotal > 0 ? aiQueuedTotal : undefined,
+        });
+
+        allSaved.push(...batchResult.uploadedDocuments);
+        allFailed.push(...batchResult.failures);
+        applyBatchResults(
+          batchIndices,
+          batchResult.uploadedDocuments,
+          batchResult.failures,
+        );
+        setFilesCompleted(end);
+      }
+
+      const aggregated: UploadFolderResult = {
+        folder: initResult.folder,
+        createdFoldersCount: initResult.createdFoldersCount,
+        uploadedDocuments: allSaved,
+        failures: allFailed,
+      };
+
+      setUploadResult(aggregated);
+      setUploadPhase("done");
+
+      if (allSaved.length > 0) {
         toast.success(
-          `Folder "${result.folder.name}" created with ${result.createdFoldersCount} subfolder(s) and ${totalSaved} file(s).`,
+          `Folder "${initResult.folder.name}" created with ${initResult.createdFoldersCount} subfolder(s) and ${allSaved.length} file(s).`,
         );
       } else {
         toast.error("Failed to upload folder contents.");
       }
 
-      if (totalFailed > 0) {
-        toast.warning(`${totalFailed} file(s) failed to upload.`);
+      if (allFailed.length > 0) {
+        toast.warning(`${allFailed.length} file(s) failed to upload.`);
       }
+
+      if (aiQueuedTotal > 0) {
+        toast.message(
+          `${aiQueuedTotal} file(s) queued for AI. Open Tray to review and confirm each document.`,
+          { duration: 6000 },
+        );
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["documents"] });
+      await queryClient.invalidateQueries({ queryKey: ["folders"] });
+      await queryClient.invalidateQueries({ queryKey: ["tray"] });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Folder upload failed";
       setFiles((prev) =>
-        prev.map((item) => ({
-          ...item,
-          status: "error",
-          error: message,
-        })),
+        prev.map((item) =>
+          item.status === "done" || item.status === "queued"
+            ? item
+            : {
+                ...item,
+                status: "error" as const,
+                error: message,
+              },
+        ),
       );
       toast.error(message);
+      setUploadPhase("idle");
     } finally {
       setIsUploading(false);
     }
@@ -358,6 +435,8 @@ export function FolderUploadDrawer({
     setRootFolderName("");
     setUploadResult(null);
     setIsUploading(false);
+    setUploadPhase("idle");
+    setFilesCompleted(0);
   };
 
   const handleDone = () => {
@@ -386,6 +465,12 @@ export function FolderUploadDrawer({
   const canClose = !isUploading && !isScanning;
   const showProgress = isUploading || uploadResult !== null;
   const queuedCount = files.filter((f) => f.status === "queued").length;
+  const overallPercent =
+    uploadPhase === "structure"
+      ? 8
+      : files.length > 0
+        ? Math.min(100, Math.round((filesCompleted / files.length) * 100))
+        : 0;
 
   const content = (
     <div className="space-y-6">
@@ -490,6 +575,15 @@ export function FolderUploadDrawer({
                 {totalSizeMB} MB
               </p>
             </div>
+          </div>
+
+          <div className="rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-xs text-amber-950">
+            <p className="font-semibold">AI analysis runs in Tray</p>
+            <p className="mt-1 leading-relaxed opacity-90">
+              Files set to <strong>AI</strong> upload to the folder, then appear in{" "}
+              <strong>Tray</strong> one at a time for you to review metadata and confirm.
+              Use <strong>Manual</strong> to save titles immediately without Tray.
+            </p>
           </div>
 
           {/* Bulk mode switch */}
@@ -607,17 +701,39 @@ export function FolderUploadDrawer({
       {/* Progress and Result Display */}
       {showProgress && (
         <div className="space-y-4">
-          {isUploading && (
-            <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3.5">
-              <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  Creating folders and uploading files…
-                </p>
-                <p className="text-xs text-secondary">
-                  Preserving structure and transferring files. Please keep this open.
-                </p>
+          {(isUploading || uploadPhase === "done") && (
+            <div className="rounded-xl border border-default bg-surface p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    {uploadPhase === "structure"
+                      ? "Creating folder structure…"
+                      : uploadPhase === "files"
+                        ? `Uploading files (${filesCompleted}/${files.length})`
+                        : "Upload complete"}
+                  </p>
+                  <p className="mt-0.5 text-xs text-secondary">
+                    {uploadPhase === "structure"
+                      ? "Setting up subfolders before file transfer"
+                      : "Uploading in small batches for reliability on slow connections"}
+                  </p>
+                </div>
+                <span className="text-sm font-semibold tabular-nums text-primary">
+                  {overallPercent}%
+                </span>
               </div>
+              <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[var(--color-bg-tertiary)]">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-300"
+                  style={{ width: `${overallPercent}%` }}
+                />
+              </div>
+              {isUploading ? (
+                <div className="mt-3 flex items-center gap-2 text-xs text-secondary">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                  Please keep this window open until all batches finish.
+                </div>
+              ) : null}
             </div>
           )}
 
@@ -659,43 +775,54 @@ export function FolderUploadDrawer({
             {files.map((file, index) => (
               <div
                 key={`${file.relativePath}-prog-${index}`}
-                className="flex items-center gap-3 rounded-lg border border-default bg-[var(--color-bg-secondary)] p-2.5"
+                className="rounded-lg border border-default bg-[var(--color-bg-secondary)] p-2.5"
               >
-                {file.status === "pending" && (
-                  <div className="h-4 w-4 shrink-0 rounded-full bg-[var(--color-bg-tertiary)]" />
-                )}
-                {file.status === "uploading" && (
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
-                )}
-                {file.status === "queued" && (
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-amber-600" />
-                )}
-                {file.status === "done" && (
-                  <Check className="h-4 w-4 shrink-0 text-green-600" />
-                )}
-                {file.status === "error" && (
-                  <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
-                )}
-
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium text-foreground">
-                    {file.relativePath}
-                  </p>
+                <div className="flex items-center gap-3">
+                  <DocumentTypeIcon fileName={file.fileName} size="sm" />
+                  {file.status === "pending" && (
+                    <div className="h-4 w-4 shrink-0 rounded-full bg-[var(--color-bg-tertiary)]" />
+                  )}
                   {file.status === "uploading" && (
-                    <p className="text-[11px] text-secondary">Uploading…</p>
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
                   )}
                   {file.status === "queued" && (
-                    <p className="text-[11px] text-amber-700">
-                      In Tray — queued for AI analysis
-                    </p>
+                    <Layers className="h-4 w-4 shrink-0 text-amber-600" />
                   )}
                   {file.status === "done" && (
-                    <p className="text-[11px] text-green-700">Saved in folder</p>
+                    <Check className="h-4 w-4 shrink-0 text-green-600" />
                   )}
-                  {file.error && (
-                    <p className="text-[11px] text-red-600">{file.error}</p>
+                  {file.status === "error" && (
+                    <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
                   )}
+
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium text-foreground">
+                      {file.relativePath}
+                    </p>
+                    {file.status === "pending" && (
+                      <p className="text-[11px] text-secondary">Waiting…</p>
+                    )}
+                    {file.status === "uploading" && (
+                      <p className="text-[11px] text-primary">Uploading…</p>
+                    )}
+                    {file.status === "queued" && (
+                      <p className="text-[11px] text-amber-700">
+                        In Tray — confirm metadata when ready
+                      </p>
+                    )}
+                    {file.status === "done" && (
+                      <p className="text-[11px] text-green-700">Saved in folder</p>
+                    )}
+                    {file.error && (
+                      <p className="text-[11px] text-red-600">{file.error}</p>
+                    )}
+                  </div>
                 </div>
+                {file.status === "uploading" ? (
+                  <div className="mt-2 h-1 overflow-hidden rounded-full bg-[var(--color-bg-tertiary)]">
+                    <div className="h-full w-2/3 animate-pulse rounded-full bg-primary" />
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
@@ -703,10 +830,24 @@ export function FolderUploadDrawer({
           {/* Completion actions */}
           {uploadResult && (
             <div className="flex flex-col gap-2 pt-2">
+              {queuedCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleDone();
+                    router.push("/dashboard/unsorted");
+                  }}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover"
+                >
+                  <Layers className="h-4 w-4" />
+                  Open Tray ({queuedCount} to confirm)
+                </button>
+              ) : null}
+
               <button
                 type="button"
                 onClick={() => handleOpenFolder(uploadResult.folder.slug)}
-                className="inline-flex w-full items-center justify-center gap-2 rounded bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover"
+                className="inline-flex w-full items-center justify-center gap-2 rounded border border-default bg-surface px-4 py-2.5 text-sm font-semibold text-foreground transition hover:bg-[var(--color-bg-secondary)]"
               >
                 <Folder className="h-4 w-4" />
                 Open &quot;{uploadResult.folder.name}&quot; Folder

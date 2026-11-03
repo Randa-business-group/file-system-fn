@@ -12,7 +12,9 @@ import { ModeSelector } from "./ModeSelector";
 import {
   useConfirmDocument,
   useCreateDocument,
+  useProcessDocument,
 } from "@/lib/hooks/useDocuments";
+import { extractTextFromFile } from "@/lib/extract-text";
 import { useGetRootFolders } from "@/lib/hooks/useFolders";
 import { useDashboard } from "@/lib/dashboard-context";
 import { uploadApi } from "@/api/upload.api";
@@ -63,6 +65,7 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
 
   const createDocument = useCreateDocument();
   const confirmDocument = useConfirmDocument();
+  const processDocument = useProcessDocument();
 
   const [isUploadingSingle, setIsUploadingSingle] = useState(false);
 
@@ -109,38 +112,27 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
     [],
   );
 
-  const handleInstantAiUpload = async (file: File) => {
+  const runAiExtractionAndReview = async (file: File) => {
     setIsUploadingSingle(true);
-    const toastId = toast.loading(`Uploading "${file.name}"...`);
+    setState("PROCESSING");
+    setCurrentStep(1);
 
     try {
-      const uploadFormData = new FormData();
-      uploadFormData.append("file", file);
-      const uploadResult = await uploadApi.uploadFile(uploadFormData);
-      const fileUrl = uploadResult.url;
+      const text = await extractTextFromFile(file);
+      setExtractedText(text);
+      setCurrentStep(2);
 
-      await createDocument.mutateAsync({
-        fileUrl,
-        fileName: file.name,
-        title: stripExtension(file.name),
-        folderId: effectiveFolderId || undefined,
-        scanWithAi: true,
-        mode: "ai",
-      });
-
-      toast.success(
-        `"${file.name}" uploaded successfully! AI is analyzing in the background.`,
-        { id: toastId },
-      );
-
-      onClose();
-      handleResetToPortal();
+      const result = await processDocument.mutateAsync(text);
+      setAiResult(result);
+      setState("CONFIRM");
     } catch (error) {
-      console.error("Upload error:", error);
+      console.error("AI processing error:", error);
       toast.error(
-        error instanceof Error ? error.message : "Failed to upload document",
-        { id: toastId },
+        error instanceof Error
+          ? error.message
+          : "Failed to analyze document. Try manual upload or another file.",
       );
+      setState("SELECTING_MODE");
     } finally {
       setIsUploadingSingle(false);
     }
@@ -152,7 +144,7 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
     setProcessingMode(nextMode);
 
     if (nextMode === "ai") {
-      void handleInstantAiUpload(selectedFile);
+      void runAiExtractionAndReview(selectedFile);
       return;
     }
 
@@ -233,7 +225,7 @@ export function UploadDrawer({ isOpen, onClose, folderId: propFolderId }: Upload
 
       toast.success(
         processingMode === "ai"
-          ? "Document uploaded successfully! AI scanning is processing in the background."
+          ? "Document saved with the details you confirmed."
           : "Document uploaded successfully!",
       );
       setState("SUCCESS");

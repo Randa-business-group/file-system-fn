@@ -36,6 +36,22 @@ npm run dev
 npm run build
 npm run start
 
+🐳 Docker
+
+Run the production container with Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+Open `http://localhost:3000`. Compose defaults the backend API URL to `http://localhost:4000/api`. Override it by setting `NEXT_PUBLIC_API_URL` in the shell or in a root `.env` file before building:
+
+```env
+NEXT_PUBLIC_API_URL=https://api.example.com/api
+```
+
+The API URL is embedded in the frontend during the image build, so rebuild the image after changing it. The backend is not included in this repository's Compose configuration.
+
 🗂️ Project Structure
 src/
 ├── api/                        # API layer

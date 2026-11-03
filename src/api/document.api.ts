@@ -310,4 +310,87 @@ export const documentApi = {
       failures: Array.isArray(failuresList) ? failuresList : [],
     };
   },
+
+  async initFolderUpload({
+    paths,
+    parentFolderId,
+    rootFolderName,
+  }: {
+    paths: string[];
+    parentFolderId?: string | null;
+    rootFolderName?: string;
+  }): Promise<{
+    folder: { id: string; name: string; slug: string };
+    createdFoldersCount: number;
+  }> {
+    const response = await apiClient.post<
+      ApiSuccessEnvelope<{
+        folder: { id: string; name: string; slug: string };
+        createdFoldersCount?: number;
+        foldersCreated?: number;
+      }>
+    >("/documents/upload-folder/init", {
+      paths: JSON.stringify(paths),
+      parentFolderId: parentFolderId ?? undefined,
+      rootFolderName: rootFolderName?.trim() || undefined,
+    });
+
+    return {
+      folder: response.data.folder,
+      createdFoldersCount:
+        response.data.createdFoldersCount ?? response.data.foldersCreated ?? 0,
+    };
+  },
+
+  async uploadFolderBatch({
+    rootFolderId,
+    files,
+    paths,
+    modes,
+    notifyTray,
+    totalAiQueued,
+  }: {
+    rootFolderId: string;
+    files: File[];
+    paths: string[];
+    modes?: UploadProcessingMode[];
+    notifyTray?: boolean;
+    totalAiQueued?: number;
+  }): Promise<{
+    uploadedDocuments: Document[];
+    failures: { fileName: string; reason: string }[];
+  }> {
+    const form = new FormData();
+    files.forEach((file) => form.append("files", file));
+    form.append("paths", JSON.stringify(paths));
+    form.append("rootFolderId", rootFolderId);
+    if (modes && modes.length > 0) {
+      form.append("modes", JSON.stringify(modes));
+    }
+    form.append("notifyTray", notifyTray === false ? "false" : "true");
+    if (totalAiQueued !== undefined) {
+      form.append("totalAiQueued", String(totalAiQueued));
+    }
+
+    const response = await apiClient.postFormData<
+      ApiSuccessEnvelope<{
+        uploadedDocuments?: DocumentApiRecord[];
+        saved?: DocumentApiRecord[];
+        failures?: { fileName: string; reason: string }[];
+        failed?: { fileName: string; reason: string }[];
+      }>
+    >("/documents/upload-folder/batch", form);
+
+    const uploadedDocs =
+      response.data?.uploadedDocuments ?? response.data?.saved ?? [];
+    const failuresList =
+      response.data?.failures ?? response.data?.failed ?? [];
+
+    return {
+      uploadedDocuments: Array.isArray(uploadedDocs)
+        ? uploadedDocs.map(normalizeDocument)
+        : [],
+      failures: Array.isArray(failuresList) ? failuresList : [],
+    };
+  },
 };
