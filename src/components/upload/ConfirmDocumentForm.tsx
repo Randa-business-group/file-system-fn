@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Sparkles } from "lucide-react";
+import { ChevronDown, Loader2, Sparkles } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useGetCategories } from "@/lib/hooks/useCategories";
@@ -210,9 +210,16 @@ export function ConfirmDocumentForm({
           <button
             type="submit"
             disabled={isLoading}
-            className="flex-1 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isLoading ? "Saving..." : "Save Document"}
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Saving...</span>
+              </>
+            ) : (
+              "Save Document"
+            )}
           </button>
         </div>
       </form>
@@ -443,9 +450,16 @@ export function ConfirmDocumentForm({
         <button
           type="submit"
           disabled={isLoading}
-          className="flex-1 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isLoading ? "Uploading..." : "Upload & Scan with AI"}
+          {isLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Uploading...</span>
+            </>
+          ) : (
+            "Upload & Scan with AI"
+          )}
         </button>
       </div>
     </form>
