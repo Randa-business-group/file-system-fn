@@ -3,7 +3,7 @@ import {
   HeroSection,
   HowItWorksSection,
   LandingShell,
-  PricingSection,
+  // PricingSection,
   ProblemSection,
   SolutionSection,
 } from "@/components/landing-pages";
@@ -14,7 +14,7 @@ export default function HomePage() {
       <HeroSection />
       <ProblemSection />
       <SolutionSection />
-      <PricingSection />
+      {/* <PricingSection /> */}
       <HowItWorksSection />
       <FAQSection />
     </LandingShell>
